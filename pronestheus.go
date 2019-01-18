@@ -80,12 +80,16 @@ func (c NestCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Implements prometheus.Collector
 func (c NestCollector) Collect(ch chan<- prometheus.Metric) {
+	log.Info("Scraping Nest API")
+
 	thermostats, err := c.getNestReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(nestUp, prometheus.GaugeValue, 0)
 		log.Error(err)
 		return
 	}
+
+	log.Info("Successfully scraped Nest API")
 
 	ch <- prometheus.MustNewConstMetric(nestUp, prometheus.GaugeValue, 1)
 
@@ -138,13 +142,15 @@ func (c NestCollector) getNestReadings() (thermostats []Thermostat, err error) {
 		return nil, errors.Wrap(err, "Calling Nest API failed")
 	}
 
-	// TODO: should return error if response is not 2xx
-
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "Reading Nest API response failed")
+	}
+
+	if res.StatusCode != 200 {
+		return nil, errors.New(fmt.Sprintf("Nest API responded with %d code: %s", res.StatusCode, body))
 	}
 
 	var data map[string]Thermostat
@@ -173,12 +179,16 @@ func (c WeatherCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Implements prometheus.Collector
 func (c WeatherCollector) Collect(ch chan<- prometheus.Metric) {
+	log.Info("Scraping OpenWeatherMap API")
+
 	weather, err := c.getWeatherReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(weatherUp, prometheus.GaugeValue, 0)
 		log.Error(err)
 		return
 	}
+
+	log.Info("Successfully scraped OpenWeatherMap API")
 
 	ch <- prometheus.MustNewConstMetric(weatherUp, prometheus.GaugeValue, 1)
 
@@ -188,20 +198,22 @@ func (c WeatherCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c WeatherCollector) getWeatherReadings() (weather Weather, err error) {
-	url := fmt.Sprintf("%s?id=%s&APPID=%s&units=metric", *weatherApiURL, *weatherApiLocationId, *weatherApiToken)
+	url := fmt.Sprintf("%s?id=%s&appid=%s&units=metric", *weatherApiURL, *weatherApiLocationId, *weatherApiToken)
 
 	res, err := http.Get(url)
 	if err != nil {
 		return weather, errors.Wrap(err, "Calling  API failed")
 	}
 
-	// TODO: should return error if response is not 2xx
-
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return weather, errors.Wrap(err, "Reading OpenWeatherMap API response failed")
+	}
+
+	if res.StatusCode != 200 {
+		return weather, errors.New(fmt.Sprintf("OpenWeatherMap responded with %d code: %s", res.StatusCode, body))
 	}
 
 	var data map[string]json.RawMessage
@@ -230,7 +242,7 @@ func main() {
 		prometheus.MustRegister(w)
 	}
 
-	log.With("addr", *listenAddress).Info("Started listening")
+	log.With("listening_addr", *listenAddress).Info("Started Pronestheus - Nest Thermostat Prometheus Exporter")
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))

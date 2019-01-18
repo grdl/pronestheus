@@ -20,6 +20,10 @@ var (
 	listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default(":2112").String()
 	nestApiURL    = kingpin.Flag("nest-api-url", "The Nest API URL").Default("https://developer-api.nest.com/devices/thermostats").String()
 	nestApiToken  = kingpin.Flag("nest-api-token", "The authorization token for Nest API").Required().String()
+
+	weatherApiURL        = kingpin.Flag("weather-api-url", "The OpenWeatherMap URL").Default("http://api.openweathermap.org/data/2.5/weather").String()
+	weatherApiToken      = kingpin.Flag("weather-api-token", "The authorization token for OpenWeatherMap API").Default("").String()
+	weatherApiLocationId = kingpin.Flag("weather-api-location-id", "The location ID for OpenWeatherMap API. Defaults to Amsterdam").Default("2759794").String()
 )
 
 var nestLabels = []string{"id", "name"}
@@ -34,6 +38,13 @@ var (
 	nestSunlight = prometheus.NewDesc("nest_sunlight", "Is thermostat in direct sunlight.", nestLabels, nil)
 )
 
+var (
+	weatherUp       = prometheus.NewDesc("nest_weather_up", "Was talking to OpenWeatherMap API successful.", nil, nil)
+	weatherTemp     = prometheus.NewDesc("nest_weather_temp", "Current outside temperature.", nil, nil)
+	weatherHumidity = prometheus.NewDesc("nest_weather_humidity", "Current outside humidity", nil, nil)
+	weatherPressure = prometheus.NewDesc("nest_weather_pressure", "Current outside pressure", nil, nil)
+)
+
 // Thermostat stores thermostat readings received from Nest API
 type Thermostat struct {
 	Id          string  `json:"device_id"`
@@ -46,7 +57,7 @@ type Thermostat struct {
 	Sunlight    bool    `json:"sunlight_correction_active"`
 }
 
-//Weather stores weather data received from Open Weather Map API
+//Weather stores weather data received from OpenWeatherMap API
 type Weather struct {
 	Temperature float64 `json:"temp"`
 	Humidity    float64 `json:"humidity"`
@@ -59,11 +70,17 @@ type NestCollector struct {
 // Implements prometheus.Collector
 func (c NestCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nestUp
+	ch <- nestTemp
+	ch <- nestTarget
+	ch <- nestHumidity
+	ch <- nestHeating
+	ch <- nestLeaf
+	ch <- nestSunlight
 }
 
 // Implements prometheus.Collector
 func (c NestCollector) Collect(ch chan<- prometheus.Metric) {
-	thermostats, err := getNestReadings()
+	thermostats, err := c.getNestReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(nestUp, prometheus.GaugeValue, 0)
 		log.Error(err)
@@ -97,12 +114,9 @@ func (c NestCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(nestSunlight, prometheus.GaugeValue, 0, labels...)
 		}
 	}
-
-	log.Info(thermostats)
 }
 
-func getNestReadings() (thermostats []Thermostat, err error) {
-
+func (c NestCollector) getNestReadings() (thermostats []Thermostat, err error) {
 	req, _ := http.NewRequest("GET", *nestApiURL, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *nestApiToken))
 
@@ -146,11 +160,75 @@ func getNestReadings() (thermostats []Thermostat, err error) {
 	return thermostats, nil
 }
 
+type WeatherCollector struct {
+}
+
+// Implements prometheus.Collector
+func (c WeatherCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- weatherUp
+	ch <- weatherTemp
+	ch <- weatherHumidity
+	ch <- weatherPressure
+}
+
+// Implements prometheus.Collector
+func (c WeatherCollector) Collect(ch chan<- prometheus.Metric) {
+	weather, err := c.getWeatherReadings()
+	if err != nil {
+		ch <- prometheus.MustNewConstMetric(weatherUp, prometheus.GaugeValue, 0)
+		log.Error(err)
+		return
+	}
+
+	ch <- prometheus.MustNewConstMetric(weatherUp, prometheus.GaugeValue, 1)
+
+	ch <- prometheus.MustNewConstMetric(weatherTemp, prometheus.GaugeValue, weather.Temperature)
+	ch <- prometheus.MustNewConstMetric(weatherHumidity, prometheus.GaugeValue, weather.Humidity)
+	ch <- prometheus.MustNewConstMetric(weatherPressure, prometheus.GaugeValue, weather.Pressure)
+}
+
+func (c WeatherCollector) getWeatherReadings() (weather Weather, err error) {
+	url := fmt.Sprintf("%s?id=%s&APPID=%s&units=metric", *weatherApiURL, *weatherApiLocationId, *weatherApiToken)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return weather, errors.Wrap(err, "Calling  API failed")
+	}
+
+	// TODO: should return error if response is not 2xx
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return weather, errors.Wrap(err, "Reading OpenWeatherMap API response failed")
+	}
+
+	var data map[string]json.RawMessage
+
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return weather, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
+	}
+
+	err = json.Unmarshal(data["main"], &weather)
+	if err != nil {
+		return weather, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
+	}
+
+	return weather, nil
+}
+
 func main() {
 	kingpin.Parse()
 
 	c := NestCollector{}
 	prometheus.MustRegister(c)
+
+	if *weatherApiToken != "" {
+		w := WeatherCollector{}
+		prometheus.MustRegister(w)
+	}
 
 	log.With("addr", *listenAddress).Info("Started listening")
 

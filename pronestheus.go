@@ -2,22 +2,22 @@ package main
 
 import (
 	"errors"
-	"flag"
+
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/prometheus/common/log"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/log"
 )
 
 var (
-	listenAddress = flag.String("listen-addr", ":2112", "The address to listen on")
-
-	nestApiURL   = flag.String("nest-api-url", "https://developer-api.nest.com/devices/thermostats", "The Nest API URL")
-	nestApiToken = flag.String("nest-api-token", "", "The authorization token for Nest API")
+	listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default(":2112").String()
+	nestApiURL    = kingpin.Flag("nest-api-url", "The Nest API URL").Default("https://developer-api.nest.com/devices/thermostats").String()
+	nestApiToken  = kingpin.Flag("nest-api-token", "The authorization token for Nest API").Required().String()
 )
 
 var (
@@ -83,11 +83,7 @@ func getNestData() (result string, err error) {
 }
 
 func main() {
-	flag.Parse()
-	if *nestApiToken == "" {
-		log.Fatal("--nest-api-token must not be empty")
-
-	}
+	kingpin.Parse()
 
 	c := NestCollector{}
 	prometheus.MustRegister(c)

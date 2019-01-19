@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Pronestheus - Nest Thermostat Prometheus Exporter
+name: pronestheus
+version: 1.0.0

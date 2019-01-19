@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pronestheus
+  labels:
+  {{- include "pronestheus.labels" . | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pronestheus
+  template:
+    metadata:
+      labels:
+        app: pronestheus
+    spec:
+      serviceAccountName: pronestheus-service-account
+      containers:
+        - name: pronestheus
+          image: {{ .Values.image | quote }}
+          args:
+            - "--listen-addr"
+            - ":{{ .Values.containerPort }}"
+            - "--nest-api-url"
+            - {{ .Values.nestApiUrl | quote}}
+            - "--weather-api-url"
+            - {{ .Values.weatherApiUrl | quote}}
+            - "--weather-api-location-id"
+            - {{ .Values.weatherApiLocation | quote}}
+            - "--nest-api-token"
+            - {{ .Values.nestApiToken | quote}}
+            - "--weather-api-token"
+            - {{ .Values.weatherApiToken | quote}}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.containerPort }}
+      imagePullSecrets:
+        - name: pronestheus-registry-secret

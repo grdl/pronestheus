@@ -1,0 +1,21 @@
+image: "registry.gitlab.com/grdl/pronestheus:0.0.1"
+
+containerPort: 2112
+servicePort: 80
+
+nestApiUrl: "https://developer-api.nest.com/devices/thermostats"
+weatherApiLocation: "2759794"
+weatherApiUrl: "http://api.openweathermap.org/data/2.5/weather"
+
+
+# Secret values placeholder
+# To avoid committing them, put them inside .secret-values.yaml file
+# and install the chart with: -f .secret-values.yaml
+
+imageCredentials:
+  registry: xxx
+  username: xxx
+  password: xxx
+
+nestApiToken: xxx
+weatherApiToken: xxx

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -94,7 +95,7 @@ func (c NestCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(nestUp, prometheus.GaugeValue, 1)
 
 	for _, therm := range thermostats {
-		labels := []string{therm.Id, therm.Name}
+		labels := []string{therm.Id, strings.Replace(therm.Name, " ", "-", -1)}
 
 		ch <- prometheus.MustNewConstMetric(nestTemp, prometheus.GaugeValue, therm.Temperature, labels...)
 		ch <- prometheus.MustNewConstMetric(nestTarget, prometheus.GaugeValue, therm.Target, labels...)

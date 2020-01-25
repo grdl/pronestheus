@@ -6,11 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/giantswarm/micrologger"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
 )
 
 // Thermostat stores thermostat readings received from Nest API
@@ -27,7 +27,8 @@ type Thermostat struct {
 
 // Config provides the necessary configuration for creating a Collector
 type Config struct {
-	Logger micrologger.Logger
+	Logger  micrologger.Logger
+	Timeout int
 
 	ApiURL   string
 	ApiToken string
@@ -35,7 +36,8 @@ type Config struct {
 
 // Collector implements the Collector interface, collecting weather data from OpenWeatherMap APi
 type Collector struct {
-	logger micrologger.Logger
+	logger  micrologger.Logger
+	timeout time.Duration
 
 	apiURL   string
 	apiToken string
@@ -50,13 +52,15 @@ type Collector struct {
 
 	//TODO:
 	// errors?
-	// timeout
 }
 
 // New creates a Collector with given Config
 func New(config Config) (*Collector, error) {
 	if config.Logger == nil {
 		return nil, errors.New("Logger must not be empty")
+	}
+	if config.Timeout <= 0 {
+		return nil, errors.New("Timeout must not be empty")
 	}
 	if config.ApiURL == "" {
 		return nil, errors.New("Nest Api URL config must not be empty")
@@ -69,9 +73,9 @@ func New(config Config) (*Collector, error) {
 
 	collector := &Collector{
 		logger:   config.Logger,
+		timeout:  time.Duration(config.Timeout) * time.Millisecond,
 		apiURL:   config.ApiURL,
 		apiToken: config.ApiToken,
-
 		up:       prometheus.NewDesc("nest_up", "Was talking to Nest API successful.", nil, nil),
 		temp:     prometheus.NewDesc("nest_current_temp", "Current ambient temperature.", nestLabels, nil),
 		target:   prometheus.NewDesc("nest_target_temp", "Current target temperature.", nestLabels, nil),
@@ -102,7 +106,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	thermostats, err := c.getNestReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
-		log.Error(err)
+		c.logger.Log("level", "error", "message", "could not get nest readings", "stack", errors.WithStack(err))
 		return
 	}
 
@@ -129,7 +133,8 @@ func (c *Collector) getNestReadings() (thermostats []Thermostat, err error) {
 
 	// Nest API needs a custom http client to be able to handle redirects
 	// See https://developers.nest.com/guides/api/how-to-handle-redirects
-	customClient := http.Client{
+	client := http.Client{
+		Timeout: c.timeout,
 		CheckRedirect: func(redirReq *http.Request, via []*http.Request) error {
 			redirReq.Header = req.Header
 
@@ -140,7 +145,7 @@ func (c *Collector) getNestReadings() (thermostats []Thermostat, err error) {
 		},
 	}
 
-	res, err := customClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "Calling Nest API failed")
 	}

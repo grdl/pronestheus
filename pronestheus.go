@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	//listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default(":2112").String()
+	listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default("").String()
+	scrapeTimeout = kingpin.Flag("scrape-timeout", "The time to wait for remote APIs to response, in miliseconds").Default("5000").Int()
+
 	nestApiURL   = kingpin.Flag("nest-api-url", "The Nest API URL").Default("https://developer-api.nest.com/devices/thermostats").String()
 	nestApiToken = kingpin.Flag("nest-api-token", "The authorization token for Nest API").Required().String()
 
@@ -33,6 +35,7 @@ func main() {
 
 	nestConfig := nest.Config{
 		Logger:   logger,
+		Timeout:  *scrapeTimeout,
 		ApiURL:   *nestApiURL,
 		ApiToken: *nestApiToken,
 	}
@@ -44,6 +47,7 @@ func main() {
 
 	weatherConfig := weather.Config{
 		Logger:        logger,
+		Timeout:       *scrapeTimeout,
 		ApiURL:        *weatherApiURL,
 		ApiToken:      *weatherApiToken,
 		ApiLocationID: *weatherApiLocationId,
@@ -55,11 +59,12 @@ func main() {
 	}
 
 	exporterConfig := exporterkit.Config{
+		Address: *listenAddress,
+		Logger:  logger,
 		Collectors: []prometheus.Collector{
 			nestCollector,
 			weatherCollector,
 		},
-		Logger: logger,
 	}
 
 	exporter, err := exporterkit.New(exporterConfig)

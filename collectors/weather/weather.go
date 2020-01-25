@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/giantswarm/micrologger"
 	"github.com/pkg/errors"
@@ -20,7 +21,8 @@ type Weather struct {
 
 // Config provides the necessary configuration for creating a Collector
 type Config struct {
-	Logger micrologger.Logger
+	Logger  micrologger.Logger
+	Timeout int
 
 	ApiURL        string
 	ApiToken      string
@@ -29,7 +31,8 @@ type Config struct {
 
 // Collector implements the Collector interface, collecting weather data from OpenWeatherMap APi
 type Collector struct {
-	logger micrologger.Logger
+	logger  micrologger.Logger
+	timeout time.Duration
 
 	apiURL        string
 	apiToken      string
@@ -42,13 +45,15 @@ type Collector struct {
 
 	//TODO:
 	// errors?
-	// timeout
 }
 
 // New creates a Collector with given Config
 func New(config Config) (*Collector, error) {
 	if config.Logger == nil {
 		return nil, errors.New("Logger must not be empty")
+	}
+	if config.Timeout <= 0 {
+		return nil, errors.New("Timeout must not be empty")
 	}
 	if config.ApiURL == "" {
 		return nil, errors.New("OpenWeatherMap Api URL config must not be empty")
@@ -62,6 +67,7 @@ func New(config Config) (*Collector, error) {
 
 	collector := &Collector{
 		logger:        config.Logger,
+		timeout:       time.Duration(config.Timeout) * time.Millisecond,
 		apiURL:        config.ApiURL,
 		apiToken:      config.ApiToken,
 		apiLocationID: config.ApiLocationID,
@@ -101,35 +107,40 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.pressure, prometheus.GaugeValue, weather.Pressure)
 }
 
-func (c *Collector) getWeatherReadings() (weather Weather, err error) {
+func (c *Collector) getWeatherReadings() (weather *Weather, err error) {
 	url := fmt.Sprintf("%s?id=%s&appid=%s&units=metric", c.apiURL, c.apiLocationID, c.apiToken)
+	req, _ := http.NewRequest("GET", url, nil)
 
-	res, err := http.Get(url)
+	client := http.Client{
+		Timeout: c.timeout,
+	}
+
+	res, err := client.Do(req)
 	if err != nil {
-		return weather, errors.Wrap(err, "Calling  API failed")
+		return nil, errors.Wrap(err, "Calling OpenWeatherMap API failed")
 	}
 
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return weather, errors.Wrap(err, "Reading OpenWeatherMap API response failed")
+		return nil, errors.Wrap(err, "Reading OpenWeatherMap API response failed")
 	}
 
 	if res.StatusCode != 200 {
-		return weather, errors.New(fmt.Sprintf("OpenWeatherMap responded with %d code: %s", res.StatusCode, body))
+		return nil, errors.New(fmt.Sprintf("OpenWeatherMap responded with %d code: %s", res.StatusCode, body))
 	}
 
 	var data map[string]json.RawMessage
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return weather, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
+		return nil, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
 	}
 
 	err = json.Unmarshal(data["main"], &weather)
 	if err != nil {
-		return weather, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
+		return nil, errors.Wrap(err, "Unmarshalling OpenWeatherMap API response failed")
 	}
 
 	return weather, nil

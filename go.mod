@@ -3,7 +3,7 @@ module gitlab.com/grdl/pronestheus
 require (
 	github.com/giantswarm/exporterkit v0.0.0-20190619131829-9749deade60f
 	github.com/giantswarm/microendpoint v0.0.0-20191121160659-e991deac2653 // indirect
-	github.com/giantswarm/microerror v0.0.0-20191011121515-e0ebc4ecf5a5
+	github.com/giantswarm/microerror v0.0.0-20191011121515-e0ebc4ecf5a5 // indirect
 	github.com/giantswarm/microkit v0.0.0-20191023091504-429e22e73d3e // indirect
 	github.com/giantswarm/micrologger v0.0.0-20191014091141-d866337f7393
 	github.com/go-kit/kit v0.9.0 // indirect

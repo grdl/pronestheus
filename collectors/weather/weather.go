@@ -40,7 +40,9 @@ type Collector struct {
 	humidity *prometheus.Desc
 	pressure *prometheus.Desc
 
+	//TODO:
 	// errors?
+	// timeout
 }
 
 // New creates a Collector with given Config
@@ -49,13 +51,13 @@ func New(config Config) (*Collector, error) {
 		return nil, errors.New("Logger must not be empty")
 	}
 	if config.ApiURL == "" {
-		return nil, errors.New("Api URL config must not be empty")
+		return nil, errors.New("OpenWeatherMap Api URL config must not be empty")
 	}
 	if config.ApiToken == "" {
-		return nil, errors.New("Api Token config must not be empty")
+		return nil, errors.New("OpenWeatherMap Api Token config must not be empty")
 	}
 	if config.ApiLocationID == "" {
-		return nil, errors.New("Api Location ID config must not be empty")
+		return nil, errors.New("OpenWeatherMap Api Location ID config must not be empty")
 	}
 
 	collector := &Collector{
@@ -73,7 +75,7 @@ func New(config Config) (*Collector, error) {
 }
 
 // Describe implements the Describe method of the Collector interface.
-func (c Collector) Describe(ch chan<- *prometheus.Desc) {
+func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.up
 	ch <- c.temp
 	ch <- c.humidity
@@ -81,7 +83,7 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect implements the Collect method of the Collector interface.
-func (c Collector) Collect(ch chan<- prometheus.Metric) {
+func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.logger.Log("level", "debug", "message", "Scraping OpenWeatherMap API")
 
 	weather, err := c.getWeatherReadings()
@@ -99,7 +101,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.pressure, prometheus.GaugeValue, weather.Pressure)
 }
 
-func (c Collector) getWeatherReadings() (weather Weather, err error) {
+func (c *Collector) getWeatherReadings() (weather Weather, err error) {
 	url := fmt.Sprintf("%s?id=%s&appid=%s&units=metric", c.apiURL, c.apiLocationID, c.apiToken)
 
 	res, err := http.Get(url)

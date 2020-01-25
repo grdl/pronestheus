@@ -24,45 +24,33 @@ var (
 func main() {
 	kingpin.Parse()
 
-	var err error
-
-	var logger micrologger.Logger
-	{
-		logger, err = micrologger.New(micrologger.Config{})
-		if err != nil {
-			panic(fmt.Sprintf("%#v\n", err))
-		}
+	logger, err := micrologger.New(micrologger.Config{})
+	if err != nil {
+		panic(fmt.Sprintf("%#v\n", err))
 	}
 
-	var weatherCollector prometheus.Collector
-	{
-		c := weather.Config{
-			Logger:        logger,
-			ApiURL:        *weatherApiURL,
-			ApiToken:      *weatherApiToken,
-			ApiLocationID: *weatherApiLocationId,
-		}
-
-		weatherCollector, err = weather.New(c)
-
-		if err != nil {
-			panic(fmt.Sprintf("%#v\n", err))
-		}
+	weatherConfig := weather.Config{
+		Logger:        logger,
+		ApiURL:        *weatherApiURL,
+		ApiToken:      *weatherApiToken,
+		ApiLocationID: *weatherApiLocationId,
 	}
 
-	var exporter *exporterkit.Exporter
-	{
-		c := exporterkit.Config{
-			Collectors: []prometheus.Collector{
-				weatherCollector,
-			},
-			Logger: logger,
-		}
+	weatherCollector, err := weather.New(weatherConfig)
+	if err != nil {
+		panic(fmt.Sprintf("%#v\n", err))
+	}
 
-		exporter, err = exporterkit.New(c)
-		if err != nil {
-			panic(fmt.Sprintf("%#v\n", err))
-		}
+	exporterConfig := exporterkit.Config{
+		Collectors: []prometheus.Collector{
+			weatherCollector,
+		},
+		Logger: logger,
+	}
+
+	exporter, err := exporterkit.New(exporterConfig)
+	if err != nil {
+		panic(fmt.Sprintf("%#v\n", err))
 	}
 
 	exporter.Run()

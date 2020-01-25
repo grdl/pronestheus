@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/giantswarm/microerror"
-
 	"github.com/giantswarm/micrologger"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,15 +45,18 @@ type Collector struct {
 
 // New creates a Collector with given Config
 func New(config Config) (*Collector, error) {
-	//if config.ApiURL == nil {
-	//	return nil, microerror.Maskf(invalidConfigError, "%T.K8sClient must not be empty", config)
-	//}
-	//if config.ApiToken == nil {
-	//	return nil, microerror.Maskf(invalidConfigError, "%T.Logger must not be empty", config)
-	//}
-	//if config.ApiLocationID == nil {
-	//	return nil, microerror.Maskf(invalidConfigError, "%T.TCPClient must not be empty", config)
-	//}
+	if config.Logger == nil {
+		return nil, errors.New("Logger must not be empty")
+	}
+	if config.ApiURL == "" {
+		return nil, errors.New("Api URL config must not be empty")
+	}
+	if config.ApiToken == "" {
+		return nil, errors.New("Api Token config must not be empty")
+	}
+	if config.ApiLocationID == "" {
+		return nil, errors.New("Api Location ID config must not be empty")
+	}
 
 	collector := &Collector{
 		logger:        config.Logger,
@@ -86,7 +87,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	weather, err := c.getWeatherReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
-		c.logger.Log("level", "error", "message", "could not get weather readings", "stack", microerror.Stack(err))
+		c.logger.Log("level", "error", "message", "could not get weather readings", "stack", errors.WithStack(err))
 		return
 	}
 

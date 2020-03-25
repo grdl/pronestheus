@@ -3,11 +3,11 @@ package weather
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"github.com/giantswarm/micrologger"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -21,7 +21,7 @@ type Weather struct {
 
 // Config provides the necessary configuration for creating a Collector
 type Config struct {
-	Logger  micrologger.Logger
+	Logger  log.Logger
 	Timeout int
 
 	ApiURL        string
@@ -31,7 +31,7 @@ type Config struct {
 
 // Collector implements the Collector interface, collecting weather data from OpenWeatherMap APi
 type Collector struct {
-	logger  micrologger.Logger
+	logger  log.Logger
 	timeout time.Duration
 
 	apiURL        string

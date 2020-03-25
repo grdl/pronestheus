@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
+	"os"
 
 	"gitlab.com/grdl/pronestheus/collectors/nest"
 	"gitlab.com/grdl/pronestheus/collectors/weather"
-
-	"github.com/giantswarm/exporterkit"
-	"github.com/giantswarm/micrologger"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default("").String()
+	listenAddress = kingpin.Flag("listen-addr", "The address to listen on").Default(":9999").String()
 	scrapeTimeout = kingpin.Flag("scrape-timeout", "The time to wait for remote APIs to response, in miliseconds").Default("5000").Int()
 
 	nestApiURL   = kingpin.Flag("nest-api-url", "The Nest API URL").Default("https://developer-api.nest.com/devices/thermostats").String()
@@ -28,10 +29,8 @@ var (
 func main() {
 	kingpin.Parse()
 
-	logger, err := micrologger.New(micrologger.Config{})
-	if err != nil {
-		panic(fmt.Sprintf("%#v\n", err))
-	}
+	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 
 	nestConfig := nest.Config{
 		Logger:   logger,
@@ -58,19 +57,15 @@ func main() {
 		panic(fmt.Sprintf("%#v\n", err))
 	}
 
-	exporterConfig := exporterkit.Config{
-		Address: *listenAddress,
-		Logger:  logger,
-		Collectors: []prometheus.Collector{
-			nestCollector,
-			weatherCollector,
-		},
-	}
+	prometheus.MustRegister(nestCollector)
+	prometheus.MustRegister(weatherCollector)
 
-	exporter, err := exporterkit.New(exporterConfig)
+	logger.Log("level", "debug", "msg", "Started Pronestheus - Nest Thermostat Prometheus Exporter")
+
+	http.Handle("/metrics", promhttp.Handler())
+	err = http.ListenAndServe(*listenAddress, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%#v\n", err))
+		logger.Log("level", "error", "msg", err.Error())
 	}
 
-	exporter.Run()
 }

@@ -6,7 +6,7 @@ stages:
   - build
 
 variables:
-  CONTAINER_IMAGE_SLUG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  CONTAINER_IMAGE_SHORT_SHA: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SHORT_SHA
   CONTAINER_IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
 
 before_script:
@@ -15,6 +15,6 @@ before_script:
 build:
   stage: build
   script:
-    - docker build -t $CONTAINER_IMAGE_SLUG -t $CONTAINER_IMAGE_LATEST .
-    - docker push $CONTAINER_IMAGE_SLUG
+    - docker build -t $CONTAINER_IMAGE_SHORT_SHA -t $CONTAINER_IMAGE_LATEST .
+    - docker push $CONTAINER_IMAGE_SHORT_SHA
     - docker push $CONTAINER_IMAGE_LATEST

@@ -2,7 +2,7 @@
 # Builder container
 #
 
-FROM golang:1.11 as builder
+FROM golang:1.14 as builder
 WORKDIR /go/src/
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -installsuffix cgo .

@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: pronestheus
   labels:
-  {{- include "pronestheus.labels" . | indent 4 }}
+{{- include "default.labels" . | indent 4 }}
 spec:
   replicas: 1
   selector:
@@ -17,22 +17,23 @@ spec:
       serviceAccountName: pronestheus-service-account
       containers:
         - name: pronestheus
-          image: {{ .Values.image | quote }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           args:
             - "--listen-addr"
-            - ":{{ .Values.containerPort }}"
+            - "0.0.0.0:{{ .Values.service.port }}"
             - "--nest-api-url"
-            - {{ .Values.nestApiUrl | quote}}
-            - "--weather-api-url"
-            - {{ .Values.weatherApiUrl | quote}}
-            - "--weather-api-location-id"
-            - {{ .Values.weatherApiLocation | quote}}
+            - {{ .Values.nest.url | quote}}
             - "--nest-api-token"
-            - {{ .Values.nestApiToken | quote}}
+            - {{ .Values.nest.token | quote}}
+            - "--weather-api-url"
+            - {{ .Values.openWeatherMap.url | quote}}
+            - "--weather-api-location-id"
+            - {{ .Values.openWeatherMap.location | quote}}
             - "--weather-api-token"
-            - {{ .Values.weatherApiToken | quote}}
+            - {{ .Values.openWeatherMap.token | quote}}
           ports:
             - name: metrics
-              containerPort: {{ .Values.containerPort }}
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
       imagePullSecrets:
         - name: pronestheus-registry-secret

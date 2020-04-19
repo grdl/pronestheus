@@ -35,5 +35,3 @@ spec:
             - name: metrics
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
-      imagePullSecrets:
-        - name: pronestheus-registry-secret

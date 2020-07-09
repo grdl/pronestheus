@@ -3,11 +3,12 @@ package nest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-kit/kit/log"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"

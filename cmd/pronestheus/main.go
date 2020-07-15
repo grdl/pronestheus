@@ -27,8 +27,13 @@ var cfg = &pkg.ExporterConfig{
 }
 
 func main() {
+	// Add short flags to --version and --help.
 	kingpin.Version(versionStr()).VersionFlag.Short('v')
 	kingpin.HelpFlag.Short('h')
+
+	// Set the main command name so it can be used as a prefix for env variable names.
+	kingpin.CommandLine.Name = "pronestheus"
+	kingpin.CommandLine.DefaultEnvars()
 	kingpin.Parse()
 
 	exporter, err := pkg.NewExporter(cfg)

@@ -1,4 +1,4 @@
-module gitlab.com/grdl/pronestheus
+module pronestheus
 
 require (
 	github.com/go-kit/kit v0.10.0

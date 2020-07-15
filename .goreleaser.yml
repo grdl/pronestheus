@@ -1,0 +1,63 @@
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: pronestheus
+    main: ./cmd/pronestheus/main.go
+    binary: pronestheus
+    ldflags:
+      - -s -w 
+      - -X main.version={{.Version}} 
+      - -X main.commit={{.Commit}} 
+      - -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+
+archives:
+  - id: archive
+    replacements:
+      darwin: macOS
+      linux: linux
+      windows: windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+    # Don't include any additional files into the archives (such as README, CHANGELOG etc). 
+    files:
+      - none* 
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  skip: true
+
+release:
+  github:
+    owner: grdl
+    name: pronestheus
+
+dockers:
+  - dockerfile: Dockerfile
+    goos: linux
+    goarch: amd64
+    binaries:
+      - pronestheus
+    image_templates:
+      - "grdl/pronestheus:{{ .Tag }}"
+      - "grdl/pronestheus:latest"
+
+nfpms:
+  - license: MIT
+    maintainer: grdl
+    homepage: https://github.com/grdl/pronestheus
+    bindir: /usr/local/bin
+    description: Prometheus exporter for Nest Learning Thermostat
+    formats:
+      - deb
+      - rpm

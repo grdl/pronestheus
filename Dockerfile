@@ -1,19 +1,8 @@
-#
-# Builder container
-#
+# This Dockerfile is intended to be used with goreleaser.
+# It doesn't build the executable, it expects it to be already built by the goreleaser.
+# Base image is based on official node-exporter Dockerfile.
 
-FROM golang:1.14 as builder
-WORKDIR /go/src/
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -a -installsuffix cgo .
-
-
-#
-# Runtime container
-#
-
-FROM scratch
-# Certificates are needed to be able to use https from inside the container
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=builder /go/src/pronestheus /
+FROM quay.io/prometheus/busybox:glibc
+COPY pronestheus /
+USER nobody
 ENTRYPOINT ["/pronestheus"]

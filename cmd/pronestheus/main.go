@@ -1,9 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"pronestheus/pkg"
 
 	"gopkg.in/alecthomas/kingpin.v2"
+)
+
+// Version metadata set by ldflags during the build.
+var (
+	version string
+	commit  string
+	date    string
 )
 
 var cfg = &pkg.Config{
@@ -17,7 +25,18 @@ var cfg = &pkg.Config{
 }
 
 func main() {
+	kingpin.Version(Version())
 	kingpin.Parse()
 
 	pkg.Run(cfg)
+}
+
+// Version returns a string with version metadata: version number, git sha and build date.
+// It returns "development" if version variables are not set during the build.
+func Version() string {
+	if version == "" {
+		return "development"
+	}
+
+	return fmt.Sprintf("%s - revision %s built at %s", version, commit[:6], date)
 }

@@ -57,7 +57,7 @@ nfpms:
     maintainer: grdl
     homepage: https://github.com/grdl/pronestheus
     bindir: /usr/local/bin
-    description: Prometheus exporter for Nest Learning Thermostat
+    description: Prometheus exporter for the Nest Learning Thermostat
     formats:
       - deb
       - rpm

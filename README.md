@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/grdl/pronestheus)](https://goreportcard.com/report/github.com/grdl/pronestheus)
 
 
-A Prometheus exporter for Nest Learning Thermostat.
+A Prometheus exporter for the [Nest Learning Thermostat](https://nest.com/).
 
 Exports metrics about your thermostats via Nest Developer API and weather metrics from your current location via OpenWeatherMap API. 
 

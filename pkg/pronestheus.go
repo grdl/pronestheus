@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 
@@ -14,8 +13,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type Config struct {
+// ExporterConfig contains configuration for the Exporter.
+type ExporterConfig struct {
 	ListenAddr      *string
+	MetricsPath     *string
 	Timeout         *int
 	NestToken       *string
 	NestURL         *string
@@ -24,10 +25,54 @@ type Config struct {
 	WeatherToken    *string
 }
 
-func Run(cfg *Config) {
-	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+// Exporter is a Prometheus exporter.
+type Exporter struct {
+	logger      log.Logger
+	listenAddr  string
+	metricsPath string
+}
+
+var logger log.Logger
+
+// NewExporter creates a Prometheus exporter using the ExporterConfig and registers the collectors.
+func NewExporter(cfg *ExporterConfig) (*Exporter, error) {
+	logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 
+	if err := registerNestCollector(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := registerWeatherCollector(cfg); err != nil {
+		return nil, err
+	}
+
+	return &Exporter{
+		logger:      logger,
+		listenAddr:  *cfg.ListenAddr,
+		metricsPath: *cfg.MetricsPath,
+	}, nil
+}
+
+// Run starts the exporter server and listens for incoming scraping requests.
+func (e *Exporter) Run() error {
+	e.logger.Log("level", "debug", "msg", "Started ProNestheus - Nest Thermostat Prometheus Exporter")
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+			<head><title>ProNestheus</title></head>
+			<body>
+			<h1>ProNestheus - Nest Thermostat Prometheus Exporter</h1>
+			<p><a href="` + e.metricsPath + `">Metrics</a></p>
+			</body>
+			</html>`))
+	})
+
+	http.Handle(e.metricsPath, promhttp.Handler())
+	return http.ListenAndServe(e.listenAddr, nil)
+}
+
+func registerNestCollector(cfg *ExporterConfig) error {
 	nestConfig := nest.Config{
 		Logger:   logger,
 		Timeout:  *cfg.Timeout,
@@ -37,7 +82,16 @@ func Run(cfg *Config) {
 
 	nestCollector, err := nest.New(nestConfig)
 	if err != nil {
-		panic(fmt.Sprintf("%#v\n", err))
+		return err
+	}
+
+	return prometheus.Register(nestCollector)
+}
+
+func registerWeatherCollector(cfg *ExporterConfig) error {
+	// Don't create weather collector if WeatherToken is empty.
+	if *cfg.WeatherToken == "" {
+		return nil
 	}
 
 	weatherConfig := weather.Config{
@@ -50,18 +104,8 @@ func Run(cfg *Config) {
 
 	weatherCollector, err := weather.New(weatherConfig)
 	if err != nil {
-		panic(fmt.Sprintf("%#v\n", err))
+		return err
 	}
 
-	prometheus.MustRegister(nestCollector)
-	prometheus.MustRegister(weatherCollector)
-
-	logger.Log("level", "debug", "msg", "Started Pronestheus - Nest Thermostat Prometheus Exporter")
-
-	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServe(*cfg.ListenAddr, nil)
-	if err != nil {
-		logger.Log("level", "error", "msg", err.Error())
-	}
-
+	return prometheus.Register(weatherCollector)
 }

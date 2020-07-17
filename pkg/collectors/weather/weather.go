@@ -51,6 +51,7 @@ type Collector struct {
 func New(cfg Config) (*Collector, error) {
 	var units string
 	switch cfg.Unit {
+	case "":
 	case celsius:
 		units = "metric"
 	case fahrenheit:

@@ -1,0 +1,6 @@
+{
+    "error": "unauthorized",
+    "type": "https://developer.nest.com/documentation/cloud/error-messages#auth-error",
+    "message": "unauthorized",
+    "instance": "dae7bad6-577a-44d8-a0bd-0a92edad5888"
+}

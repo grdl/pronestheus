@@ -18,6 +18,7 @@ type ExporterConfig struct {
 	ListenAddr      *string
 	MetricsPath     *string
 	Timeout         *int
+	TemperatureUnit *string
 	NestToken       *string
 	NestURL         *string
 	WeatherLocation *string
@@ -76,8 +77,8 @@ func registerNestCollector(cfg *ExporterConfig) error {
 	nestConfig := nest.Config{
 		Logger:   logger,
 		Timeout:  *cfg.Timeout,
-		ApiURL:   *cfg.NestURL,
-		ApiToken: *cfg.NestToken,
+		APIURL:   *cfg.NestURL,
+		APIToken: *cfg.NestToken,
 	}
 
 	nestCollector, err := nest.New(nestConfig)
@@ -97,9 +98,10 @@ func registerWeatherCollector(cfg *ExporterConfig) error {
 	weatherConfig := weather.Config{
 		Logger:        logger,
 		Timeout:       *cfg.Timeout,
-		ApiURL:        *cfg.WeatherURL,
-		ApiToken:      *cfg.WeatherToken,
-		ApiLocationID: *cfg.WeatherLocation,
+		Unit:          *cfg.TemperatureUnit,
+		APIURL:        *cfg.WeatherURL,
+		APIToken:      *cfg.WeatherToken,
+		APILocationID: *cfg.WeatherLocation,
 	}
 
 	weatherCollector, err := weather.New(weatherConfig)

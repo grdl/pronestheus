@@ -14,9 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Thermostat stores thermostat readings received from Nest API
+// Thermostat stores thermostat data received from Nest API.
 type Thermostat struct {
-	Id          string  `json:"device_id"`
+	ID          string  `json:"device_id"`
 	Name        string  `json:"name"`
 	Temperature float64 `json:"ambient_temperature_c"`
 	Target      float64 `json:"target_temperature_c"`
@@ -26,23 +26,20 @@ type Thermostat struct {
 	Sunlight    bool    `json:"sunlight_correction_active"`
 }
 
-// Config provides the necessary configuration for creating a Collector
+// Config provides the configuration necessary to create the Collector.
 type Config struct {
-	Logger  log.Logger
-	Timeout int
-
-	ApiURL   string
-	ApiToken string
+	Logger   log.Logger
+	Timeout  int
+	Unit     string
+	APIURL   string
+	APIToken string
 }
 
-// Collector implements the Collector interface, collecting weather data from OpenWeatherMap APi
+// Collector implements the Collector interface, collecting thermostats data from Nest API.
 type Collector struct {
-	logger  log.Logger
-	timeout time.Duration
-
-	apiURL   string
-	apiToken string
-
+	client   *http.Client
+	req      *http.Request
+	logger   log.Logger
 	up       *prometheus.Desc
 	temp     *prometheus.Desc
 	target   *prometheus.Desc
@@ -50,33 +47,36 @@ type Collector struct {
 	heating  *prometheus.Desc
 	leaf     *prometheus.Desc
 	sunlight *prometheus.Desc
-
-	//TODO:
-	// errors?
 }
 
-// New creates a Collector with given Config
-func New(config Config) (*Collector, error) {
-	if config.Logger == nil {
-		return nil, errors.New("Logger must not be empty")
+// New creates a Collector using the given Config.
+func New(cfg Config) (*Collector, error) {
+	req, err := http.NewRequest("GET", cfg.APIURL, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed creating Nest API request")
 	}
-	if config.Timeout <= 0 {
-		return nil, errors.New("Timeout must not be empty")
-	}
-	if config.ApiURL == "" {
-		return nil, errors.New("Nest Api URL config must not be empty")
-	}
-	if config.ApiToken == "" {
-		return nil, errors.New("Nest Api Token config must not be empty")
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.APIToken))
+
+	// Nest API needs a custom http client to be able to add headers to redirects.
+	// See https://developers.nest.com/guides/api/how-to-handle-redirects
+	client := &http.Client{
+		Timeout: time.Duration(cfg.Timeout) * time.Millisecond,
+		CheckRedirect: func(redirReq *http.Request, via []*http.Request) error {
+			redirReq.Header = req.Header
+
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return nil
+		},
 	}
 
 	var nestLabels = []string{"id", "name"}
-
 	collector := &Collector{
-		logger:   config.Logger,
-		timeout:  time.Duration(config.Timeout) * time.Millisecond,
-		apiURL:   config.ApiURL,
-		apiToken: config.ApiToken,
+		client:   client,
+		req:      req,
+		logger:   cfg.Logger,
 		up:       prometheus.NewDesc("nest_up", "Was talking to Nest API successful.", nil, nil),
 		temp:     prometheus.NewDesc("nest_current_temp", "Current ambient temperature.", nestLabels, nil),
 		target:   prometheus.NewDesc("nest_target_temp", "Current target temperature.", nestLabels, nil),
@@ -89,7 +89,7 @@ func New(config Config) (*Collector, error) {
 	return collector, nil
 }
 
-// Implements prometheus.Collector
+// Describe implements the prometheus.Describe interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.up
 	ch <- c.temp
@@ -100,23 +100,21 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.sunlight
 }
 
-// Implements prometheus.Collector
+// Collect implements the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	c.logger.Log("level", "debug", "message", "Scraping Nest API")
-
 	thermostats, err := c.getNestReadings()
 	if err != nil {
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
-		c.logger.Log("level", "error", "message", "could not get nest readings", "stack", errors.WithStack(err))
+		c.logger.Log("level", "error", "message", "Failed collecting Nest data", "stack", errors.WithStack(err))
 		return
 	}
 
-	c.logger.Log("level", "debug", "message", "Successfully scraped Nest API")
+	c.logger.Log("level", "debug", "message", "Successfully collected Nest data")
 
 	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1)
 
 	for _, therm := range thermostats {
-		labels := []string{therm.Id, strings.Replace(therm.Name, " ", "-", -1)}
+		labels := []string{therm.ID, strings.Replace(therm.Name, " ", "-", -1)}
 
 		ch <- prometheus.MustNewConstMetric(c.temp, prometheus.GaugeValue, therm.Temperature, labels...)
 		ch <- prometheus.MustNewConstMetric(c.target, prometheus.GaugeValue, therm.Target, labels...)
@@ -129,43 +127,26 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *Collector) getNestReadings() (thermostats []Thermostat, err error) {
-	req, _ := http.NewRequest("GET", c.apiURL, nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiToken))
-
-	// Nest API needs a custom http client to be able to handle redirects
-	// See https://developers.nest.com/guides/api/how-to-handle-redirects
-	client := http.Client{
-		Timeout: c.timeout,
-		CheckRedirect: func(redirReq *http.Request, via []*http.Request) error {
-			redirReq.Header = req.Header
-
-			if len(via) >= 10 {
-				return errors.New("stopped after 10 redirects")
-			}
-			return nil
-		},
-	}
-
-	res, err := client.Do(req)
+	res, err := c.client.Do(c.req)
 	if err != nil {
-		return nil, errors.Wrap(err, "Calling Nest API failed")
+		return nil, errors.Wrap(err, "calling Nest API failed")
 	}
 
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "Reading Nest API response failed")
+		return nil, errors.Wrap(err, "reading Nest API response failed")
 	}
 
 	if res.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Nest API responded with %d code: %s", res.StatusCode, body))
+		return nil, errors.New(fmt.Sprintf("nest API responded with %d code: %s", res.StatusCode, body))
 	}
 
 	var data map[string]Thermostat
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unmarshalling Nest API response failed")
+		return nil, errors.Wrap(err, "unmarshalling Nest API response failed")
 	}
 
 	for _, thermostat := range data {

@@ -9,7 +9,7 @@ import (
 	"runtime"
 )
 
-// WeatherServerMetric returns a mock OpenWeatherMap server which returns valid response with temperature in Celsius.
+// WeatherServerMetric returns a mock OpenWeatherMap server which returns a valid response with temperature in Celsius.
 func WeatherServerMetric() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -17,7 +17,7 @@ func WeatherServerMetric() *httptest.Server {
 	}))
 }
 
-// WeatherServerImperial returns a mock OpenWeatherMap server which returns valid response with temperature in Fahrenheit.
+// WeatherServerImperial returns a mock OpenWeatherMap server which returns a valid response with temperature in Fahrenheit.
 func WeatherServerImperial() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -25,7 +25,7 @@ func WeatherServerImperial() *httptest.Server {
 	}))
 }
 
-// WeatherServerMissingID returns a mock OpenWeatherMap server which returns error due to missing location ID.
+// WeatherServerMissingID returns a mock OpenWeatherMap server which returns an error due to missing location ID.
 func WeatherServerMissingID() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -33,7 +33,7 @@ func WeatherServerMissingID() *httptest.Server {
 	}))
 }
 
-// WeatherServerInvalidToken returns a mock OpenWeatherMap server which returns error due to invalid authentication token.
+// WeatherServerInvalidToken returns a mock OpenWeatherMap server which returns an error due to invalid authentication token.
 func WeatherServerInvalidToken() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -41,11 +41,35 @@ func WeatherServerInvalidToken() *httptest.Server {
 	}))
 }
 
-// WeatherServerInvalidResponse returns a mock OpenWeatherMap server which returns a invalid JSON response.
+// WeatherServerInvalidResponse returns a mock OpenWeatherMap server which returns an invalid JSON response.
 func WeatherServerInvalidResponse() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, readFile(filepath.Join("weather_invalid.json")))
+	}))
+}
+
+// NestServer returns a mock Nest server which returns a valid response.
+func NestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, readFile(filepath.Join("nest_valid.json")))
+	}))
+}
+
+// NestServerInvalidToken returns a mock Nest server which returns an error due to invalid authentication token.
+func NestServerInvalidToken() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintln(w, readFile(filepath.Join("nest_invalid_token.json")))
+	}))
+}
+
+// NestServerInvalidResponse returns a mock Nest server which returns an invalid JSON response.
+func NestServerInvalidResponse() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, readFile(filepath.Join("nest_invalid.json")))
 	}))
 }
 

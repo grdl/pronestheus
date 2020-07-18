@@ -10,16 +10,16 @@ import (
 
 func TestServerResponses(t *testing.T) {
 	tests := []struct {
-		name        string
-		url         string
-		wantErr     error
-		wantWeather *Weather
+		name    string
+		url     string
+		wantErr error
+		want    *Weather
 	}{
 		{
 			name:    "valid response celsius",
 			url:     test.WeatherServerMetric().URL,
 			wantErr: nil,
-			wantWeather: &Weather{
+			want: &Weather{
 				Humidity:    float64(88),
 				Pressure:    float64(1021),
 				Temperature: float64(20.26),
@@ -28,31 +28,31 @@ func TestServerResponses(t *testing.T) {
 			name:    "valid response fahrenheit",
 			url:     test.WeatherServerImperial().URL,
 			wantErr: nil,
-			wantWeather: &Weather{
+			want: &Weather{
 				Humidity:    float64(88),
 				Pressure:    float64(1021),
 				Temperature: float64(68.36),
 			},
 		}, {
-			name:        "missing location id",
-			url:         test.WeatherServerMissingID().URL,
-			wantErr:     errNon200Response,
-			wantWeather: nil,
+			name:    "missing location id",
+			url:     test.WeatherServerMissingID().URL,
+			wantErr: errNon200Response,
+			want:    nil,
 		}, {
-			name:        "invalid auth token",
-			url:         test.WeatherServerInvalidToken().URL,
-			wantErr:     errNon200Response,
-			wantWeather: nil,
+			name:    "invalid auth token",
+			url:     test.WeatherServerInvalidToken().URL,
+			wantErr: errNon200Response,
+			want:    nil,
 		}, {
-			name:        "invalid JSON response",
-			url:         test.WeatherServerInvalidResponse().URL,
-			wantErr:     errFailedUnmarshalling,
-			wantWeather: nil,
+			name:    "invalid JSON response",
+			url:     test.WeatherServerInvalidResponse().URL,
+			wantErr: errFailedUnmarshalling,
+			want:    nil,
 		}, {
-			name:        "invalid server",
-			url:         "http://nonexisting.server",
-			wantErr:     errFailedRequest,
-			wantWeather: nil,
+			name:    "invalid server",
+			url:     "http://nonexisting.server",
+			wantErr: errFailedRequest,
+			want:    nil,
 		},
 	}
 
@@ -70,7 +70,7 @@ func TestServerResponses(t *testing.T) {
 				assert.True(t, errors.Is(err, test.wantErr))
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, weather, test.wantWeather)
+				assert.Equal(t, weather, test.want)
 			}
 		})
 	}

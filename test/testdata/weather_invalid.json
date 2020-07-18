@@ -1,0 +1,11 @@
+{
+    "message": "this JSON is missing a bunch of expected fields",
+    "coord": {
+        "lon": 4.89,
+        "lat": 52.37
+    },
+    "timezone": 7200,
+    "id": 2759794,
+    "name": "Amsterdam",
+    "cod": 200
+}

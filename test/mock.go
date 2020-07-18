@@ -12,21 +12,47 @@ import (
 // WeatherServerMetric returns a mock OpenWeatherMap server which returns valid response with temperature in Celsius.
 func WeatherServerMetric() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, readFile(filepath.Join("weather_metric.json")))
 	}))
 }
 
-// WeatherServerImperial returns a mock OpenWeatherMap server which returns valid response with temperature. in Fahrenheit.
+// WeatherServerImperial returns a mock OpenWeatherMap server which returns valid response with temperature in Fahrenheit.
 func WeatherServerImperial() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, readFile(filepath.Join("weather_imperial.json")))
+	}))
+}
+
+// WeatherServerMissingID returns a mock OpenWeatherMap server which returns error due to missing location ID.
+func WeatherServerMissingID() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, readFile(filepath.Join("weather_empty_id.json")))
+	}))
+}
+
+// WeatherServerInvalidToken returns a mock OpenWeatherMap server which returns error due to invalid authentication token.
+func WeatherServerInvalidToken() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintln(w, readFile(filepath.Join("weather_invalid_token.json")))
+	}))
+}
+
+// WeatherServerInvalidResponse returns a mock OpenWeatherMap server which returns a invalid JSON response.
+func WeatherServerInvalidResponse() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, readFile(filepath.Join("weather_invalid.json")))
 	}))
 }
 
 // readFile returns contents of a file from the testdata folder.
 //
-// Becasue `go test` always executes tests with working directory set to the source of the package under test,
-// we need to find the path to the testdata dir to be able to use it in tests inside different packages.
+// `go test` always executes tests with working directory set to the source of the package being tested.
+// Because of that, we need to find the path to the testdata dir to be able to use it in tests inside different packages.
 //
 // Ref:
 // - https://dave.cheney.net/2016/05/10/test-fixtures-in-go

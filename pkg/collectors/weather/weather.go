@@ -14,17 +14,26 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	celsius    string = "celsius"
+	fahrenheit string = "fahrenheit"
+)
+
+var (
+	errNon200Response      = errors.New("openWeatherMap API responded with non-200 code")
+	errFailedParsingURL    = errors.New("failed parsing OpenWeatherMap API URL")
+	errInvalidTempUnit     = errors.New("invalid temperature unit; valid values: [celsius, fahrenheit]")
+	errFailedUnmarshalling = errors.New("failed unmarshalling OpenWeatherMap API response body")
+	errFailedRequest       = errors.New("failed OpenWeatherMap API request")
+	errFailedReadingBody   = errors.New("failed reading OpenWeatherMap API response body")
+)
+
 // Weather stores weather data received from OpenWeatherMap API.
 type Weather struct {
 	Temperature float64 `json:"temp"`
 	Humidity    float64 `json:"humidity"`
 	Pressure    float64 `json:"pressure"`
 }
-
-const (
-	celsius    string = "celsius"
-	fahrenheit string = "fahrenheit"
-)
 
 // Config provides the configuration necessary to create the Collector.
 type Config struct {
@@ -51,16 +60,17 @@ type Collector struct {
 func New(cfg Config) (*Collector, error) {
 	var units string
 	switch cfg.Unit {
-	case "":
-	case celsius:
+	case "", celsius:
 		units = "metric"
 	case fahrenheit:
 		units = "imperial"
+	default:
+		return nil, errInvalidTempUnit
 	}
 
 	rawurl := fmt.Sprintf("%s?id=%s&appid=%s&units=%s", cfg.APIURL, cfg.APILocationID, cfg.APIToken, units)
 	if _, err := url.ParseRequestURI(rawurl); err != nil {
-		return nil, errors.Wrap(err, "failed parsing OpenWeatherMap API URL")
+		return nil, errors.Wrap(errFailedParsingURL, err.Error())
 	}
 
 	client := &http.Client{
@@ -108,30 +118,30 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 func (c *Collector) getWeatherReadings() (weather *Weather, err error) {
 	res, err := c.client.Get(c.url)
 	if err != nil {
-		return nil, errors.Wrap(err, "calling OpenWeatherMap API failed")
+		return nil, errors.Wrap(errFailedRequest, err.Error())
 	}
 
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "reading OpenWeatherMap API response failed")
+		return nil, errors.Wrap(errFailedReadingBody, err.Error())
 	}
 
 	if res.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("openWeatherMap responded with %d code: %s", res.StatusCode, body))
+		return nil, errors.Wrap(errNon200Response, fmt.Sprintf("code: %d", res.StatusCode))
 	}
 
 	var data map[string]json.RawMessage
 
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalling OpenWeatherMap API response failed")
+		return nil, errors.Wrap(errFailedUnmarshalling, err.Error())
 	}
 
 	err = json.Unmarshal(data["main"], &weather)
 	if err != nil {
-		return nil, errors.Wrap(err, "unmarshalling OpenWeatherMap API response failed")
+		return nil, errors.Wrap(errFailedUnmarshalling, err.Error())
 	}
 
 	return weather, nil

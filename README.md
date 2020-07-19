@@ -5,7 +5,7 @@
 
 A Prometheus exporter for the [Nest Learning Thermostat](https://nest.com/).
 
-Exposes metrics about your thermostats weather in your current location.
+Exposes metrics about your thermostats and weather in your current location.
 
 ![dashboard](docs/dashboard.png)
 

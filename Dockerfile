@@ -5,4 +5,5 @@
 FROM quay.io/prometheus/busybox:glibc
 COPY pronestheus /
 USER nobody
+EXPOSE 9777
 ENTRYPOINT ["/pronestheus"]

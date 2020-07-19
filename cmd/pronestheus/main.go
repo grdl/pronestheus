@@ -16,15 +16,15 @@ var (
 )
 
 var cfg = &pkg.ExporterConfig{
-	ListenAddr:      kingpin.Flag("listen-addr", "Address on which to expose metrics and web interface.").Default(":9999").String(),
+	ListenAddr:      kingpin.Flag("listen-addr", "Address on which to expose metrics and web interface.").Default(":9777").String(),
 	MetricsPath:     kingpin.Flag("metrics-path", "Path under which to expose metrics.").Default("/metrics").String(),
 	Timeout:         kingpin.Flag("scrape-timeout", "The time to wait for remote APIs to response, in milliseconds.").Default("5000").Int(),
-	TemperatureUnit: kingpin.Flag("temperature-unit", "The temperature metric unit [celsius, fahrenheit].").Default("celsius").Enum("celsius", "fahrenheit"),
-	NestURL:         kingpin.Flag("nest-api-url", "The Nest API URL.").Default("https://developer-api.nest.com/devices/thermostats").String(),
-	NestToken:       kingpin.Flag("nest-api-token", "The authorization token for Nest API.").Required().String(),
-	WeatherURL:      kingpin.Flag("weather-api-url", "The OpenWeatherMap URL.").Default("http://api.openweathermap.org/data/2.5/weather").String(),
-	WeatherToken:    kingpin.Flag("weather-api-token", "The authorization token for OpenWeatherMap API.").String(),
-	WeatherLocation: kingpin.Flag("weather-api-location-id", "The location ID for OpenWeatherMap API. Defaults to Amsterdam.").Default("2759794").String(),
+	TemperatureUnit: kingpin.Flag("temp-unit", "The temperature metric unit [celsius, fahrenheit].").Default("celsius").Enum("celsius", "fahrenheit"),
+	NestURL:         kingpin.Flag("nest-url", "The Nest API URL.").Default("https://developer-api.nest.com/devices/thermostats").String(),
+	NestToken:       kingpin.Flag("nest-auth", "The authorization token for Nest API.").Required().String(),
+	WeatherURL:      kingpin.Flag("owm-url", "The OpenWeatherMap API URL.").Default("http://api.openweathermap.org/data/2.5/weather").String(),
+	WeatherToken:    kingpin.Flag("owm-auth", "The authorization token for OpenWeatherMap API.").String(),
+	WeatherLocation: kingpin.Flag("owm-location", "The location ID for OpenWeatherMap API. Defaults to Amsterdam.").Default("2759794").String(),
 }
 
 func main() {

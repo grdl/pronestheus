@@ -1,0 +1,34 @@
+version: "3"
+services:
+  prometheus:
+    image: prom/prometheus:v2.19.2
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./files/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data-volume:/prometheus
+
+  grafana:
+    image: grafana/grafana:7.1.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./files/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./files/grafana-providers.yml:/etc/grafana/provisioning/dashboards/providers.yml
+      - ./files/grafana-dashboard.json:/var/lib/grafana/dashboards/pronestheus.json
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/pronestheus.json
+
+  pronestheus:  
+    image: grdl/pronestheus:latest
+    ports:
+      - "9777:9777"
+    environment:
+      - PRONESTHEUS_NEST_AUTH=${PRONESTHEUS_NEST_AUTH:?Nest API auth token is missing}
+      - PRONESTHEUS_OWM_AUTH=${PRONESTHEUS_OWM_AUTH}
+      - PRONESTHEUS_OWM_LOCATION=${PRONESTHEUS_OWM_LOCATION}
+      - PRONESTHEUS_TEMP_UNIT=${PRONESTHEUS_TEMP_UNIT}
+
+volumes:
+  prometheus-data-volume:

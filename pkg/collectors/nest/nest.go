@@ -122,7 +122,7 @@ func buildMetrics(unit string) *Metrics {
 		target:   prometheus.NewDesc(strings.Join([]string{"nest", "target", "temperature", unit}, "_"), "Target temperature.", nestLabels, nil),
 		humidity: prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
 		heating:  prometheus.NewDesc(strings.Join([]string{"nest", "heating"}, "_"), "Is thermostat heating.", nestLabels, nil),
-		leaf:     prometheus.NewDesc(strings.Join([]string{"nest", "leaf", "percent"}, "_"), "Is thermostat set to energy-saving temperature.", nestLabels, nil),
+		leaf:     prometheus.NewDesc(strings.Join([]string{"nest", "leaf"}, "_"), "Is thermostat set to energy-saving temperature.", nestLabels, nil),
 	}
 }
 
@@ -152,10 +152,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	for _, therm := range thermostats {
 		labels := []string{therm.ID, strings.Replace(therm.Name, " ", "-", -1)}
 
-		if c.unit == celsius {
+		switch c.unit {
+		case "", celsius:
 			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureC, labels...)
 			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetC, labels...)
-		} else {
+		case fahrenheit:
 			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureF, labels...)
 			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetF, labels...)
 		}

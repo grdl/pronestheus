@@ -77,6 +77,7 @@ func registerNestCollector(cfg *ExporterConfig) error {
 	nestConfig := nest.Config{
 		Logger:   logger,
 		Timeout:  *cfg.Timeout,
+		Unit:     *cfg.TemperatureUnit,
 		APIURL:   *cfg.NestURL,
 		APIToken: *cfg.NestToken,
 	}

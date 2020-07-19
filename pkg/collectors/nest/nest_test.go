@@ -68,3 +68,40 @@ func TestServerResponses(t *testing.T) {
 		})
 	}
 }
+func TestAPIURLParsing(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawurl  string
+		wantErr error
+	}{
+		{
+			name:    "invalid url",
+			rawurl:  "https/////this.is.not.a.valid.url",
+			wantErr: errFailedParsingURL,
+		}, {
+			name:    "empty url",
+			rawurl:  "",
+			wantErr: errFailedParsingURL,
+		}, {
+			name:    "valid url",
+			rawurl:  "https://example.com/valid",
+			wantErr: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c, err := New(Config{
+				APIURL: test.rawurl,
+			})
+
+			if test.wantErr != nil {
+				assert.Nil(t, c)
+				assert.True(t, errors.Is(err, test.wantErr))
+			} else {
+				assert.NotNil(t, c)
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

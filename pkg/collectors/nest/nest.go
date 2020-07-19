@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,9 +15,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	celsius    string = "celsius"
+	fahrenheit string = "fahrenheit"
+)
+
 var (
 	errNon200Response        = errors.New("nest API responded with non-200 code")
 	errFailedCreatingRequest = errors.New("failed creating Nest API request")
+	errFailedParsingURL      = errors.New("failed parsing OpenWeatherMap API URL")
 	errInvalidTempUnit       = errors.New("invalid temperature unit; valid values: [celsius, fahrenheit]")
 	errFailedUnmarshalling   = errors.New("failed unmarshalling Nest API response body")
 	errFailedRequest         = errors.New("failed Nest API request")
@@ -48,20 +55,29 @@ type Config struct {
 
 // Collector implements the Collector interface, collecting thermostats data from Nest API.
 type Collector struct {
-	client   *http.Client
-	req      *http.Request
-	logger   log.Logger
+	client  *http.Client
+	req     *http.Request
+	logger  log.Logger
+	metrics *Metrics
+	unit    string
+}
+
+// Metrics contains the metrics collected by the Collector.
+type Metrics struct {
 	up       *prometheus.Desc
 	temp     *prometheus.Desc
 	target   *prometheus.Desc
 	humidity *prometheus.Desc
 	heating  *prometheus.Desc
 	leaf     *prometheus.Desc
-	sunlight *prometheus.Desc
 }
 
 // New creates a Collector using the given Config.
 func New(cfg Config) (*Collector, error) {
+	if _, err := url.ParseRequestURI(cfg.APIURL); err != nil {
+		return nil, errors.Wrap(errFailedParsingURL, err.Error())
+	}
+
 	req, err := http.NewRequest(http.MethodGet, cfg.APIURL, nil)
 	if err != nil {
 		return nil, errors.Wrap(errFailedCreatingRequest, err.Error())
@@ -83,55 +99,70 @@ func New(cfg Config) (*Collector, error) {
 		},
 	}
 
-	var nestLabels = []string{"id", "name"}
 	collector := &Collector{
-		client:   client,
-		req:      req,
-		logger:   cfg.Logger,
-		up:       prometheus.NewDesc("nest_up", "Was talking to Nest API successful.", nil, nil),
-		temp:     prometheus.NewDesc("nest_current_temp", "Current ambient temperature.", nestLabels, nil),
-		target:   prometheus.NewDesc("nest_target_temp", "Current target temperature.", nestLabels, nil),
-		humidity: prometheus.NewDesc("nest_humidity", "Current inside humidity.", nestLabels, nil),
-		heating:  prometheus.NewDesc("nest_heating", "Is thermostat heating.", nestLabels, nil),
-		leaf:     prometheus.NewDesc("nest_leaf", "Is thermostat set to energy-saving temperature.", nestLabels, nil),
-		sunlight: prometheus.NewDesc("nest_sunlight", "Is thermostat in direct sunlight.", nestLabels, nil),
+		client:  client,
+		req:     req,
+		logger:  cfg.Logger,
+		metrics: buildMetrics(cfg.Unit),
+		unit:    cfg.Unit,
 	}
 
 	return collector, nil
 }
 
+func buildMetrics(unit string) *Metrics {
+	if unit == "" {
+		unit = celsius
+	}
+
+	var nestLabels = []string{"id", "name"}
+	return &Metrics{
+		up:       prometheus.NewDesc(strings.Join([]string{"nest", "up"}, "_"), "Was talking to Nest API successful.", nil, nil),
+		temp:     prometheus.NewDesc(strings.Join([]string{"nest", "current", "temperature", unit}, "_"), "Inside temperature.", nestLabels, nil),
+		target:   prometheus.NewDesc(strings.Join([]string{"nest", "target", "temperature", unit}, "_"), "Target temperature.", nestLabels, nil),
+		humidity: prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
+		heating:  prometheus.NewDesc(strings.Join([]string{"nest", "heating"}, "_"), "Is thermostat heating.", nestLabels, nil),
+		leaf:     prometheus.NewDesc(strings.Join([]string{"nest", "leaf", "percent"}, "_"), "Is thermostat set to energy-saving temperature.", nestLabels, nil),
+	}
+}
+
 // Describe implements the prometheus.Describe interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.up
-	ch <- c.temp
-	ch <- c.target
-	ch <- c.humidity
-	ch <- c.heating
-	ch <- c.leaf
-	ch <- c.sunlight
+	ch <- c.metrics.up
+	ch <- c.metrics.temp
+	ch <- c.metrics.target
+	ch <- c.metrics.humidity
+	ch <- c.metrics.heating
+	ch <- c.metrics.leaf
 }
 
 // Collect implements the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	thermostats, err := c.getNestReadings()
 	if err != nil {
-		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 0)
 		c.logger.Log("level", "error", "message", "Failed collecting Nest data", "stack", errors.WithStack(err))
 		return
 	}
 
 	c.logger.Log("level", "debug", "message", "Successfully collected Nest data")
 
-	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1)
+	ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 1)
 
 	for _, therm := range thermostats {
 		labels := []string{therm.ID, strings.Replace(therm.Name, " ", "-", -1)}
 
-		ch <- prometheus.MustNewConstMetric(c.temp, prometheus.GaugeValue, therm.TemperatureC, labels...)
-		ch <- prometheus.MustNewConstMetric(c.target, prometheus.GaugeValue, therm.TargetC, labels...)
-		ch <- prometheus.MustNewConstMetric(c.humidity, prometheus.GaugeValue, therm.Humidity, labels...)
-		ch <- prometheus.MustNewConstMetric(c.heating, prometheus.GaugeValue, b2f(therm.HVACState == "heating"), labels...)
-		ch <- prometheus.MustNewConstMetric(c.leaf, prometheus.GaugeValue, b2f(therm.Leaf), labels...)
+		if c.unit == celsius {
+			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureC, labels...)
+			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetC, labels...)
+		} else {
+			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureF, labels...)
+			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetF, labels...)
+		}
+
+		ch <- prometheus.MustNewConstMetric(c.metrics.humidity, prometheus.GaugeValue, therm.Humidity, labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.heating, prometheus.GaugeValue, b2f(therm.HVACState == "heating"), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.leaf, prometheus.GaugeValue, b2f(therm.Leaf), labels...)
 	}
 }
 

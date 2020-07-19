@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -47,9 +48,14 @@ type Config struct {
 
 // Collector implements the Collector interface, collecting weather data from OpenWeatherMap API.
 type Collector struct {
-	client   *http.Client
-	url      string
-	logger   log.Logger
+	client  *http.Client
+	url     string
+	logger  log.Logger
+	metrics *Metrics
+}
+
+// Metrics contains the metrics collected by the Collector.
+type Metrics struct {
 	up       *prometheus.Desc
 	temp     *prometheus.Desc
 	humidity *prometheus.Desc
@@ -78,41 +84,51 @@ func New(cfg Config) (*Collector, error) {
 	}
 
 	collector := &Collector{
-		client:   client,
-		url:      rawurl,
-		logger:   cfg.Logger,
-		up:       prometheus.NewDesc("nest_weather_up", "Was talking to OpenWeatherMap API successful.", nil, nil),
-		temp:     prometheus.NewDesc("nest_weather_temp", "Current outside temperature.", nil, nil),
-		humidity: prometheus.NewDesc("nest_weather_humidity", "Current outside humidity", nil, nil),
-		pressure: prometheus.NewDesc("nest_weather_pressure", "Current outside pressure", nil, nil),
+		client:  client,
+		url:     rawurl,
+		logger:  cfg.Logger,
+		metrics: buildMetrics(cfg.Unit),
 	}
 
 	return collector, nil
 }
 
+func buildMetrics(unit string) *Metrics {
+	if unit == "" {
+		unit = "celsius"
+	}
+
+	return &Metrics{
+		up:       prometheus.NewDesc(strings.Join([]string{"nest", "weather", "up"}, "_"), "Was talking to OpenWeatherMap API successful.", nil, nil),
+		temp:     prometheus.NewDesc(strings.Join([]string{"nest", "weather", "temperature", unit}, "_"), "Outside temperature.", nil, nil),
+		humidity: prometheus.NewDesc(strings.Join([]string{"nest", "weather", "humidity", "percent"}, "_"), "Outside humidity.", nil, nil),
+		pressure: prometheus.NewDesc(strings.Join([]string{"nest", "weather", "pressure", "hectopascal"}, "_"), "Outside pressure.", nil, nil),
+	}
+}
+
 // Describe implements the prometheus.Describe interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.up
-	ch <- c.temp
-	ch <- c.humidity
-	ch <- c.pressure
+	ch <- c.metrics.up
+	ch <- c.metrics.temp
+	ch <- c.metrics.humidity
+	ch <- c.metrics.pressure
 }
 
 // Collect implements the prometheus.Describe interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	weather, err := c.getWeatherReadings()
 	if err != nil {
-		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 0)
 		c.logger.Log("level", "error", "message", "Failed collecting OpenWeatherMap data", "stack", errors.WithStack(err))
 		return
 	}
 
 	c.logger.Log("level", "debug", "message", "Successfully collected OpenWeatherMap data")
 
-	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 1)
-	ch <- prometheus.MustNewConstMetric(c.temp, prometheus.GaugeValue, weather.Temperature)
-	ch <- prometheus.MustNewConstMetric(c.humidity, prometheus.GaugeValue, weather.Humidity)
-	ch <- prometheus.MustNewConstMetric(c.pressure, prometheus.GaugeValue, weather.Pressure)
+	ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 1)
+	ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, weather.Temperature)
+	ch <- prometheus.MustNewConstMetric(c.metrics.humidity, prometheus.GaugeValue, weather.Humidity)
+	ch <- prometheus.MustNewConstMetric(c.metrics.pressure, prometheus.GaugeValue, weather.Pressure)
 }
 
 func (c *Collector) getWeatherReadings() (weather *Weather, err error) {

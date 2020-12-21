@@ -1,7 +1,7 @@
 version: "3"
 services:
   prometheus:
-    image: prom/prometheus:v2.19.2
+    image: prom/prometheus:v2.23.0
     ports:
       - "9090:9090"
     volumes:
@@ -9,7 +9,7 @@ services:
       - prometheus-data-volume:/prometheus
 
   grafana:
-    image: grafana/grafana:7.1.0
+    image: grafana/grafana:7.3.6
     ports:
       - "3000:3000"
     volumes:
@@ -24,11 +24,8 @@ services:
     image: grdl/pronestheus:latest
     ports:
       - "9777:9777"
-    environment:
-      - PRONESTHEUS_NEST_AUTH=${PRONESTHEUS_NEST_AUTH:?Nest API auth token is missing}
-      - PRONESTHEUS_OWM_AUTH=${PRONESTHEUS_OWM_AUTH}
-      - PRONESTHEUS_OWM_LOCATION=${PRONESTHEUS_OWM_LOCATION}
-      - PRONESTHEUS_TEMP_UNIT=${PRONESTHEUS_TEMP_UNIT}
+    env_file:
+      - .env
 
 volumes:
   prometheus-data-volume:

@@ -16,3 +16,6 @@
 
 # goreleaser dist folder
 dist/
+
+# .env file with production values
+.env-prod

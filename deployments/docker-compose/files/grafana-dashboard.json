@@ -72,7 +72,7 @@
             "steppedLine": false,
             "targets": [
                 {
-                    "expr": "nest_current_temperature_celsius",
+                    "expr": "nest_ambient_temperature_celsius",
                     "interval": "",
                     "legendFormat": "Inside",
                     "refId": "A"
@@ -84,7 +84,7 @@
                     "refId": "B"
                 },
                 {
-                    "expr": "nest_target_temperature_celsius",
+                    "expr": "nest_setpoint_temperature_celsius",
                     "interval": "",
                     "legendFormat": "Target",
                     "refId": "C"
@@ -303,7 +303,7 @@
             "pluginVersion": "7.1.0",
             "targets": [
                 {
-                    "expr": "nest_current_temperature_celsius",
+                    "expr": "nest_ambient_temperature_celsius",
                     "hide": false,
                     "instant": true,
                     "interval": "",
@@ -376,12 +376,6 @@
                     "interval": "",
                     "legendFormat": "Heating On",
                     "refId": "A"
-                },
-                {
-                    "expr": "nest_leaf",
-                    "interval": "",
-                    "legendFormat": "Saving On",
-                    "refId": "B"
                 }
             ],
             "thresholds": [],
@@ -461,6 +455,6 @@
     },
     "timezone": "",
     "title": "Nest Thermostat",
-    "uid": "",
+    "uid": null,
     "version": 12
 }

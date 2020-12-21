@@ -16,15 +16,17 @@ var (
 )
 
 var cfg = &pkg.ExporterConfig{
-	ListenAddr:      kingpin.Flag("listen-addr", "Address on which to expose metrics and web interface.").Default(":9777").String(),
-	MetricsPath:     kingpin.Flag("metrics-path", "Path under which to expose metrics.").Default("/metrics").String(),
-	Timeout:         kingpin.Flag("scrape-timeout", "The time to wait for remote APIs to response, in milliseconds.").Default("5000").Int(),
-	TemperatureUnit: kingpin.Flag("temp-unit", "The temperature metric unit [celsius, fahrenheit].").Default("celsius").Enum("celsius", "fahrenheit"),
-	NestURL:         kingpin.Flag("nest-url", "The Nest API URL.").Default("https://developer-api.nest.com/devices/thermostats").String(),
-	NestToken:       kingpin.Flag("nest-auth", "The authorization token for Nest API.").Required().String(),
-	WeatherURL:      kingpin.Flag("owm-url", "The OpenWeatherMap API URL.").Default("http://api.openweathermap.org/data/2.5/weather").String(),
-	WeatherToken:    kingpin.Flag("owm-auth", "The authorization token for OpenWeatherMap API.").String(),
-	WeatherLocation: kingpin.Flag("owm-location", "The location ID for OpenWeatherMap API. Defaults to Amsterdam.").Default("2759794").String(),
+	ListenAddr:            kingpin.Flag("listen-addr", "Address on which to expose metrics and web interface.").Default(":9777").String(),
+	MetricsPath:           kingpin.Flag("metrics-path", "Path under which to expose metrics.").Default("/metrics").String(),
+	Timeout:               kingpin.Flag("scrape-timeout", "Time to wait for remote APIs to response, in milliseconds.").Default("5000").Int(),
+	NestURL:               kingpin.Flag("nest-url", "Nest API URL.").Default("https://smartdevicemanagement.googleapis.com/v1/").String(),
+	NestOAuthClientID:     kingpin.Flag("nest-client-id", "OAuth2 Client ID").String(),
+	NestOAuthClientSecret: kingpin.Flag("nest-client-secret", "OAuth2 Client Secret.").String(),
+	NestProjectID:         kingpin.Flag("nest-project-id", "Device Access Project ID.").String(),
+	NestRefreshToken:      kingpin.Flag("nest-refresh-token", "Refresh token").String(),
+	WeatherURL:            kingpin.Flag("owm-url", "The OpenWeatherMap API URL.").Default("http://api.openweathermap.org/data/2.5/weather").String(),
+	WeatherToken:          kingpin.Flag("owm-auth", "The authorization token for OpenWeatherMap API.").String(),
+	WeatherLocation:       kingpin.Flag("owm-location", "The location ID for OpenWeatherMap API. Defaults to Amsterdam.").Default("2759794").String(),
 }
 
 func main() {

@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"os"
 
+	"golang.org/x/oauth2"
+
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -15,15 +17,18 @@ import (
 
 // ExporterConfig contains configuration for the Exporter.
 type ExporterConfig struct {
-	ListenAddr      *string
-	MetricsPath     *string
-	Timeout         *int
-	TemperatureUnit *string
-	NestToken       *string
-	NestURL         *string
-	WeatherLocation *string
-	WeatherURL      *string
-	WeatherToken    *string
+	ListenAddr            *string
+	MetricsPath           *string
+	Timeout               *int
+	NestURL               *string
+	NestOAuthClientID     *string
+	NestOAuthClientSecret *string
+	NestOAuthToken        *oauth2.Token // Only used to mock a dummy token in tests
+	NestProjectID         *string
+	NestRefreshToken      *string
+	WeatherLocation       *string
+	WeatherURL            *string
+	WeatherToken          *string
 }
 
 // Exporter is a Prometheus exporter.
@@ -75,11 +80,14 @@ func (e *Exporter) Run() error {
 
 func registerNestCollector(cfg *ExporterConfig) error {
 	nestConfig := nest.Config{
-		Logger:   logger,
-		Timeout:  *cfg.Timeout,
-		Unit:     *cfg.TemperatureUnit,
-		APIURL:   *cfg.NestURL,
-		APIToken: *cfg.NestToken,
+		Logger:            logger,
+		Timeout:           *cfg.Timeout,
+		APIURL:            *cfg.NestURL,
+		OAuthClientID:     *cfg.NestOAuthClientID,
+		OAuthClientSecret: *cfg.NestOAuthClientSecret,
+		RefreshToken:      *cfg.NestRefreshToken,
+		ProjectID:         *cfg.NestProjectID,
+		OAuthToken:        cfg.NestOAuthToken,
 	}
 
 	nestCollector, err := nest.New(nestConfig)
@@ -99,7 +107,6 @@ func registerWeatherCollector(cfg *ExporterConfig) error {
 	weatherConfig := weather.Config{
 		Logger:        logger,
 		Timeout:       *cfg.Timeout,
-		Unit:          *cfg.TemperatureUnit,
 		APIURL:        *cfg.WeatherURL,
 		APIToken:      *cfg.WeatherToken,
 		APILocationID: *cfg.WeatherLocation,

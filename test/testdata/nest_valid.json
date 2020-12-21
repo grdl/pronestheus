@@ -1,36 +1,55 @@
 {
-    "abcd1234567890": {
-        "humidity": 60,
-        "locale": "en-GB",
-        "temperature_scale": "C",
-        "is_using_emergency_heat": false,
-        "has_fan": false,
-        "software_version": "5.9.4-5",
-        "has_leaf": false,
-        "where_id": "_abc_def-123_456",
-        "device_id": "abcd1234567890",
-        "name": "Living Room",
-        "can_heat": true,
-        "can_cool": false,
-        "target_temperature_c": 20.0,
-        "target_temperature_f": 68,
-        "target_temperature_high_c": 24.0,
-        "target_temperature_high_f": 75,
-        "target_temperature_low_c": 20.0,
-        "target_temperature_low_f": 68,
-        "ambient_temperature_c": 23.0,
-        "ambient_temperature_f": 74,
-        "away_temperature_high_c": 24.0,
-        "away_temperature_high_f": 76,
-        "away_temperature_low_c": 17.0,
-        "away_temperature_low_f": 63,
-        "structure_id": "abc_def-ghij",
-        "fan_timer_active": false,
-        "fan_timer_timeout": "1970-01-01T00:00:00.000Z",
-        "hvac_mode": "heat",
-        "name_long": "Living Room Thermostat",
-        "is_online": true,
-        "last_connection": "2020-07-17T14:11:08.087Z",
-        "hvac_state": "off"
+  "devices": [
+    {
+      "name": "enterprises/PROJECT_ID/devices/DEVICE_ID",
+      "type": "sdm.devices.types.THERMOSTAT",
+      "assignee": "enterprises/PROJECT_ID/structures/STRUCTURE_ID/rooms/ROOM_ID",
+      "traits": {
+        "sdm.devices.traits.Info": {
+          "customName": "Custom Name"
+        },
+        "sdm.devices.traits.Humidity": {
+          "ambientHumidityPercent": 57
+        },
+        "sdm.devices.traits.Connectivity": {
+          "status": "ONLINE"
+        },
+        "sdm.devices.traits.Fan": {},
+        "sdm.devices.traits.ThermostatMode": {
+          "mode": "HEAT",
+          "availableModes": [
+            "HEAT",
+            "OFF"
+          ]
+        },
+        "sdm.devices.traits.ThermostatEco": {
+          "availableModes": [
+            "OFF",
+            "MANUAL_ECO"
+          ],
+          "mode": "OFF",
+          "heatCelsius": 17.11803,
+          "coolCelsius": 24.44443
+        },
+        "sdm.devices.traits.ThermostatHvac": {
+          "status": "OFF"
+        },
+        "sdm.devices.traits.Settings": {
+          "temperatureScale": "CELSIUS"
+        },
+        "sdm.devices.traits.ThermostatTemperatureSetpoint": {
+          "heatCelsius": 19.17838
+        },
+        "sdm.devices.traits.Temperature": {
+          "ambientTemperatureCelsius": 20.23999
+        }
+      },
+      "parentRelations": [
+        {
+          "parent": "enterprises/PROJECT_ID/structures/STRUCTURE_ID/rooms/ROOM_ID",
+          "displayName": "Living Room"
+        }
+      ]
     }
+  ]
 }

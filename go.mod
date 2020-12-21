@@ -10,6 +10,8 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/stretchr/testify v1.6.1
+	github.com/tidwall/gjson v1.6.4
+	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
 

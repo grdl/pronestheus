@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"runtime"
+	"time"
+
+	"golang.org/x/oauth2"
 )
 
 // WeatherServerMetric returns a mock OpenWeatherMap server which returns a valid response with temperature in Celsius.
@@ -92,4 +95,15 @@ func readFile(filename string) string {
 	}
 
 	return string(bytes)
+}
+
+// ValidToken returns a dummy oauth token which is always valid.
+// Using this token won't trigger a call to refresh the access token.
+func ValidToken() *oauth2.Token {
+	return &oauth2.Token{
+		AccessToken:  "dummy token",
+		TokenType:    "Bearer",
+		RefreshToken: "dummy refresh",
+		Expiry:       time.Time{},
+	}
 }

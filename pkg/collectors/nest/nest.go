@@ -1,7 +1,7 @@
 package nest
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,67 +9,62 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tidwall/gjson"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/endpoints"
+
 	"github.com/go-kit/kit/log"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	celsius    string = "celsius"
-	fahrenheit string = "fahrenheit"
-)
-
 var (
-	errNon200Response        = errors.New("nest API responded with non-200 code")
-	errFailedCreatingRequest = errors.New("failed creating Nest API request")
-	errFailedParsingURL      = errors.New("failed parsing OpenWeatherMap API URL")
-	errInvalidTempUnit       = errors.New("invalid temperature unit; valid values: [celsius, fahrenheit]")
-	errFailedUnmarshalling   = errors.New("failed unmarshalling Nest API response body")
-	errFailedRequest         = errors.New("failed Nest API request")
-	errFailedReadingBody     = errors.New("failed reading Nest API response body")
-	errReachedMaxRedirects   = errors.New("reached max redirects")
+	errNon200Response      = errors.New("nest API responded with non-200 code")
+	errFailedParsingURL    = errors.New("failed parsing OpenWeatherMap API URL")
+	errFailedUnmarshalling = errors.New("failed unmarshalling Nest API response body")
+	errFailedRequest       = errors.New("failed Nest API request")
+	errFailedReadingBody   = errors.New("failed reading Nest API response body")
 )
 
 // Thermostat stores thermostat data received from Nest API.
 type Thermostat struct {
-	ID           string  `json:"device_id"`
-	Name         string  `json:"name"`
-	TemperatureC float64 `json:"ambient_temperature_c"`
-	TemperatureF float64 `json:"ambient_temperature_f"`
-	TargetC      float64 `json:"target_temperature_c"`
-	TargetF      float64 `json:"target_temperature_f"`
-	Humidity     float64 `json:"humidity"`
-	HVACState    string  `json:"hvac_state"`
-	Leaf         bool    `json:"has_leaf"`
+	ID           string
+	Label        string
+	AmbientTemp  float64
+	SetpointTemp float64
+	Humidity     float64
+	Status       string
 }
 
 // Config provides the configuration necessary to create the Collector.
 type Config struct {
-	Logger   log.Logger
-	Timeout  int
-	Unit     string
-	APIURL   string
-	APIToken string
+	Logger            log.Logger
+	Timeout           int
+	APIURL            string
+	OAuthClientID     string
+	OAuthClientSecret string
+	RefreshToken      string
+	ProjectID         string
+	OAuthToken        *oauth2.Token
 }
 
 // Collector implements the Collector interface, collecting thermostats data from Nest API.
 type Collector struct {
 	client  *http.Client
-	req     *http.Request
+	url     string
 	logger  log.Logger
 	metrics *Metrics
-	unit    string
 }
 
 // Metrics contains the metrics collected by the Collector.
 type Metrics struct {
-	up       *prometheus.Desc
-	temp     *prometheus.Desc
-	target   *prometheus.Desc
-	humidity *prometheus.Desc
-	heating  *prometheus.Desc
-	leaf     *prometheus.Desc
+	up           *prometheus.Desc
+	ambientTemp  *prometheus.Desc
+	setpointTemp *prometheus.Desc
+	humidity     *prometheus.Desc
+	heating      *prometheus.Desc
 }
 
 // New creates a Collector using the given Config.
@@ -78,62 +73,53 @@ func New(cfg Config) (*Collector, error) {
 		return nil, errors.Wrap(errFailedParsingURL, err.Error())
 	}
 
-	req, err := http.NewRequest(http.MethodGet, cfg.APIURL, nil)
-	if err != nil {
-		return nil, errors.Wrap(errFailedCreatingRequest, err.Error())
+	oauthConfig := &oauth2.Config{
+		ClientID:     cfg.OAuthClientID,
+		ClientSecret: cfg.OAuthClientSecret,
+		Scopes:       []string{"https://www.googleapis.com/auth/sdm.service"},
+		Endpoint:     endpoints.Google,
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.APIToken))
-
-	// Nest API needs a custom http client to be able to pass the auth header to redirect destination.
-	// See https://developers.nest.com/guides/api/how-to-handle-redirects
-	client := &http.Client{
-		Timeout: time.Duration(cfg.Timeout) * time.Millisecond,
-		CheckRedirect: func(redirReq *http.Request, via []*http.Request) error {
-			redirReq.Header = req.Header
-
-			if len(via) >= 10 {
-				return errReachedMaxRedirects
-			}
-			return nil
-		},
+	// If token is not provided we create a new one using RefreshToken. Using this token, the client will automatically
+	// get, and refresh, a valid access token for the API.
+	if cfg.OAuthToken == nil {
+		cfg.OAuthToken = &oauth2.Token{
+			TokenType:    "Bearer",
+			RefreshToken: cfg.RefreshToken,
+		}
 	}
+
+	client := oauthConfig.Client(context.Background(), cfg.OAuthToken)
+	client.Timeout = time.Duration(cfg.Timeout) * time.Millisecond
 
 	collector := &Collector{
 		client:  client,
-		req:     req,
+		url:     cfg.APIURL + "enterprises/" + cfg.ProjectID + "/devices/",
 		logger:  cfg.Logger,
-		metrics: buildMetrics(cfg.Unit),
-		unit:    cfg.Unit,
+		metrics: buildMetrics(),
 	}
 
 	return collector, nil
 }
 
-func buildMetrics(unit string) *Metrics {
-	if unit == "" {
-		unit = celsius
-	}
-
-	var nestLabels = []string{"id", "name"}
+func buildMetrics() *Metrics {
+	var nestLabels = []string{"id", "label"}
 	return &Metrics{
-		up:       prometheus.NewDesc(strings.Join([]string{"nest", "up"}, "_"), "Was talking to Nest API successful.", nil, nil),
-		temp:     prometheus.NewDesc(strings.Join([]string{"nest", "current", "temperature", unit}, "_"), "Inside temperature.", nestLabels, nil),
-		target:   prometheus.NewDesc(strings.Join([]string{"nest", "target", "temperature", unit}, "_"), "Target temperature.", nestLabels, nil),
-		humidity: prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
-		heating:  prometheus.NewDesc(strings.Join([]string{"nest", "heating"}, "_"), "Is thermostat heating.", nestLabels, nil),
-		leaf:     prometheus.NewDesc(strings.Join([]string{"nest", "leaf"}, "_"), "Is thermostat set to energy-saving temperature.", nestLabels, nil),
+		up:           prometheus.NewDesc(strings.Join([]string{"nest", "up"}, "_"), "Was talking to Nest API successful.", nil, nil),
+		ambientTemp:  prometheus.NewDesc(strings.Join([]string{"nest", "ambient", "temperature", "celsius"}, "_"), "Inside temperature.", nestLabels, nil),
+		setpointTemp: prometheus.NewDesc(strings.Join([]string{"nest", "setpoint", "temperature", "celsius"}, "_"), "Setpoint temperature.", nestLabels, nil),
+		humidity:     prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
+		heating:      prometheus.NewDesc(strings.Join([]string{"nest", "heating"}, "_"), "Is thermostat heating.", nestLabels, nil),
 	}
 }
 
 // Describe implements the prometheus.Describe interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.metrics.up
-	ch <- c.metrics.temp
-	ch <- c.metrics.target
+	ch <- c.metrics.ambientTemp
+	ch <- c.metrics.setpointTemp
 	ch <- c.metrics.humidity
 	ch <- c.metrics.heating
-	ch <- c.metrics.leaf
 }
 
 // Collect implements the prometheus.Collector interface.
@@ -150,27 +136,23 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 1)
 
 	for _, therm := range thermostats {
-		labels := []string{therm.ID, strings.Replace(therm.Name, " ", "-", -1)}
+		labels := []string{therm.ID, strings.Replace(therm.Label, " ", "-", -1)}
 
-		switch c.unit {
-		case "", celsius:
-			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureC, labels...)
-			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetC, labels...)
-		case fahrenheit:
-			ch <- prometheus.MustNewConstMetric(c.metrics.temp, prometheus.GaugeValue, therm.TemperatureF, labels...)
-			ch <- prometheus.MustNewConstMetric(c.metrics.target, prometheus.GaugeValue, therm.TargetF, labels...)
-		}
-
+		ch <- prometheus.MustNewConstMetric(c.metrics.ambientTemp, prometheus.GaugeValue, therm.AmbientTemp, labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.setpointTemp, prometheus.GaugeValue, therm.SetpointTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.metrics.humidity, prometheus.GaugeValue, therm.Humidity, labels...)
-		ch <- prometheus.MustNewConstMetric(c.metrics.heating, prometheus.GaugeValue, b2f(therm.HVACState == "heating"), labels...)
-		ch <- prometheus.MustNewConstMetric(c.metrics.leaf, prometheus.GaugeValue, b2f(therm.Leaf), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.heating, prometheus.GaugeValue, b2f(therm.Status == "HEATING"), labels...)
 	}
 }
 
 func (c *Collector) getNestReadings() (thermostats []*Thermostat, err error) {
-	res, err := c.client.Do(c.req)
+	res, err := c.client.Get(c.url)
 	if err != nil {
 		return nil, errors.Wrap(errFailedRequest, err.Error())
+	}
+
+	if res.StatusCode != 200 {
+		return nil, errors.Wrap(errNon200Response, fmt.Sprintf("code: %d", res.StatusCode))
 	}
 
 	defer res.Body.Close()
@@ -180,18 +162,28 @@ func (c *Collector) getNestReadings() (thermostats []*Thermostat, err error) {
 		return nil, errors.Wrap(errFailedReadingBody, err.Error())
 	}
 
-	if res.StatusCode != 200 {
-		return nil, errors.Wrap(errNon200Response, fmt.Sprintf("code: %d", res.StatusCode))
-	}
+	// Iterate over the array of "devices" returned from the API and unmarshall them into Thermostat objects.
+	gjson.Get(string(body), "devices").ForEach(func(_, device gjson.Result) bool {
+		// Skip to next device if the current one is not a thermostat.
+		if device.Get("type").String() != "sdm.devices.types.THERMOSTAT" {
+			return true
+		}
 
-	var data map[string]Thermostat
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return nil, errors.Wrap(errFailedUnmarshalling, err.Error())
-	}
+		thermostat := Thermostat{
+			ID:           device.Get("name").String(),
+			Label:        device.Get("traits.sdm\\.devices\\.traits\\.Info.customName").String(),
+			AmbientTemp:  device.Get("traits.sdm\\.devices\\.traits\\.Temperature.ambientTemperatureCelsius").Float(),
+			SetpointTemp: device.Get("traits.sdm\\.devices\\.traits\\.ThermostatTemperatureSetpoint.heatCelsius").Float(),
+			Humidity:     device.Get("traits.sdm\\.devices\\.traits\\.Humidity.ambientHumidityPercent").Float(),
+			Status:       device.Get("traits.sdm\\.devices\\.traits\\.ThermostatHvac.status").String(),
+		}
 
-	for _, thermostat := range data {
 		thermostats = append(thermostats, &thermostat)
+		return true
+	})
+
+	if len(thermostats) == 0 {
+		return nil, errors.Wrap(errFailedUnmarshalling, "no valid thermostats in devices list")
 	}
 
 	return thermostats, nil

@@ -1,7 +1,7 @@
 package nest
 
 import (
-	"pronestheus/test"
+	mock "pronestheus/test"
 	"testing"
 
 	"github.com/alecthomas/assert"
@@ -17,27 +17,24 @@ func TestServerResponses(t *testing.T) {
 	}{
 		{
 			name:    "valid response",
-			url:     test.NestServer().URL,
+			url:     mock.NestServer().URL,
 			wantErr: nil,
 			want: &Thermostat{
-				ID:           "abcd1234567890",
-				Name:         "Living Room",
-				TemperatureC: float64(23.0),
-				TemperatureF: float64(74),
-				TargetC:      float64(20.0),
-				TargetF:      float64(68),
-				Humidity:     float64(60),
-				HVACState:    "off",
-				Leaf:         false,
+				ID:           "enterprises/PROJECT_ID/devices/DEVICE_ID",
+				Label:        "Custom Name",
+				AmbientTemp:  float64(20.23999),
+				SetpointTemp: float64(19.17838),
+				Humidity:     float64(57),
+				Status:       "OFF",
 			},
 		}, {
 			name:    "invalid auth token",
-			url:     test.NestServerInvalidToken().URL,
+			url:     mock.NestServerInvalidToken().URL,
 			wantErr: errNon200Response,
 			want:    nil,
 		}, {
 			name:    "invalid JSON response",
-			url:     test.NestServerInvalidResponse().URL,
+			url:     mock.NestServerInvalidResponse().URL,
 			wantErr: errFailedUnmarshalling,
 			want:    nil,
 		}, {
@@ -51,7 +48,8 @@ func TestServerResponses(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			c, err := New(Config{
-				APIURL: test.url,
+				APIURL:     test.url,
+				OAuthToken: mock.ValidToken(),
 			})
 			assert.NoError(t, err)
 

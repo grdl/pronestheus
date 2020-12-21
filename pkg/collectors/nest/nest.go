@@ -94,7 +94,7 @@ func New(cfg Config) (*Collector, error) {
 
 	collector := &Collector{
 		client:  client,
-		url:     cfg.APIURL + "enterprises/" + cfg.ProjectID + "/devices/",
+		url:     strings.TrimRight(cfg.APIURL, "/") + "/enterprises/" + cfg.ProjectID + "/devices/",
 		logger:  cfg.Logger,
 		metrics: buildMetrics(),
 	}

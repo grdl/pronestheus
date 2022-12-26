@@ -98,6 +98,9 @@ nest_humidity_percent{id="abcd1234",label="Living-Room"} 55
 # HELP nest_setpoint_temperature_celsius Setpoint temperature.
 # TYPE nest_setpoint_temperature_celsius gauge
 nest_setpoint_temperature_celsius{id="abcd1234",label="Living-Room"} 18
+# HELP nest_online Is the thermostat online.
+# TYPE nest_online gauge
+nest_online{id="abcd1234",label="Living-Room"} 1
 # HELP nest_up Was talking to Nest API successful.
 # TYPE nest_up gauge
 nest_up 1

@@ -31,6 +31,7 @@ var (
 // Thermostat stores thermostat data received from Nest API.
 type Thermostat struct {
 	ID           string
+	Room         string
 	Label        string
 	AmbientTemp  float64
 	SetpointTemp float64
@@ -103,7 +104,7 @@ func New(cfg Config) (*Collector, error) {
 }
 
 func buildMetrics() *Metrics {
-	var nestLabels = []string{"id", "label"}
+	var nestLabels = []string{"id", "room", "label"}
 	return &Metrics{
 		up:           prometheus.NewDesc(strings.Join([]string{"nest", "up"}, "_"), "Was talking to Nest API successful.", nil, nil),
 		ambientTemp:  prometheus.NewDesc(strings.Join([]string{"nest", "ambient", "temperature", "celsius"}, "_"), "Inside temperature.", nestLabels, nil),
@@ -136,7 +137,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.metrics.up, prometheus.GaugeValue, 1)
 
 	for _, therm := range thermostats {
-		labels := []string{therm.ID, strings.Replace(therm.Label, " ", "-", -1)}
+		labels := []string{therm.ID, therm.Room, strings.Replace(therm.Label, " ", "-", -1)}
 
 		ch <- prometheus.MustNewConstMetric(c.metrics.ambientTemp, prometheus.GaugeValue, therm.AmbientTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.metrics.setpointTemp, prometheus.GaugeValue, therm.SetpointTemp, labels...)
@@ -169,8 +170,24 @@ func (c *Collector) getNestReadings() (thermostats []*Thermostat, err error) {
 			return true
 		}
 
+		room := ""
+		// We determine the room from the list of parent relationships of this
+		// thermostat. We're explicitly looking for relationships of type
+		// "room" because I didn't have a way to test how other relationship
+		// types look like.
+		//
+		// Even though this is an array of relationships, a Nest thermostat
+		// can belong only to a single room.
+		for _, parent := range device.Get("parentRelations").Array() {
+			if strings.Contains(parent.Get("parent").String(), "/rooms/") {
+				room = parent.Get("displayName").String()
+				break
+			}
+		}
+
 		thermostat := Thermostat{
 			ID:           device.Get("name").String(),
+			Room:         room,
 			Label:        device.Get("traits.sdm\\.devices\\.traits\\.Info.customName").String(),
 			AmbientTemp:  device.Get("traits.sdm\\.devices\\.traits\\.Temperature.ambientTemperatureCelsius").Float(),
 			SetpointTemp: device.Get("traits.sdm\\.devices\\.traits\\.ThermostatTemperatureSetpoint.heatCelsius").Float(),

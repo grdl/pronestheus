@@ -31,6 +31,7 @@ func TestAllMetrics(t *testing.T) {
 
 	assert.Equal(t, w.Code, http.StatusOK)
 	assert.Contains(t, w.Body.String(), "nest_up 1")
+	assert.Contains(t, w.Body.String(), `nest_online{id="enterprises/PROJECT_ID/devices/DEVICE_ID",label="Custom-Name"} 1`)
 	assert.Contains(t, w.Body.String(), `nest_setpoint_temperature_celsius{id="enterprises/PROJECT_ID/devices/DEVICE_ID",label="Custom-Name"} 19.17838`)
 	assert.Contains(t, w.Body.String(), `nest_ambient_temperature_celsius{id="enterprises/PROJECT_ID/devices/DEVICE_ID",label="Custom-Name"} 20.23999`)
 	assert.Contains(t, w.Body.String(), `nest_humidity_percent{id="enterprises/PROJECT_ID/devices/DEVICE_ID",label="Custom-Name"} 57`)

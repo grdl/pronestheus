@@ -32,6 +32,7 @@ var (
 type Thermostat struct {
 	ID           string
 	Label        string
+	Online       bool
 	AmbientTemp  float64
 	SetpointTemp float64
 	Humidity     float64
@@ -61,6 +62,7 @@ type Collector struct {
 // Metrics contains the metrics collected by the Collector.
 type Metrics struct {
 	up           *prometheus.Desc
+	online       *prometheus.Desc
 	ambientTemp  *prometheus.Desc
 	setpointTemp *prometheus.Desc
 	humidity     *prometheus.Desc
@@ -106,6 +108,7 @@ func buildMetrics() *Metrics {
 	var nestLabels = []string{"id", "label"}
 	return &Metrics{
 		up:           prometheus.NewDesc(strings.Join([]string{"nest", "up"}, "_"), "Was talking to Nest API successful.", nil, nil),
+		online:       prometheus.NewDesc(strings.Join([]string{"nest", "online"}, "_"), "Is the thermostat online.", nestLabels, nil),
 		ambientTemp:  prometheus.NewDesc(strings.Join([]string{"nest", "ambient", "temperature", "celsius"}, "_"), "Inside temperature.", nestLabels, nil),
 		setpointTemp: prometheus.NewDesc(strings.Join([]string{"nest", "setpoint", "temperature", "celsius"}, "_"), "Setpoint temperature.", nestLabels, nil),
 		humidity:     prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
@@ -116,6 +119,7 @@ func buildMetrics() *Metrics {
 // Describe implements the prometheus.Describe interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.metrics.up
+	ch <- c.metrics.online
 	ch <- c.metrics.ambientTemp
 	ch <- c.metrics.setpointTemp
 	ch <- c.metrics.humidity
@@ -137,6 +141,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 	for _, therm := range thermostats {
 		labels := []string{therm.ID, strings.Replace(therm.Label, " ", "-", -1)}
+
+		ch <- prometheus.MustNewConstMetric(c.metrics.online, prometheus.GaugeValue, b2f(therm.Online), labels...)
+
+		// Emit the rest of the metrics only if the thermostat is ONLINE.
+		// When the thermostat is offline, we do not know the current values
+		// of these metrics.
+		if !therm.Online {
+			continue
+		}
 
 		ch <- prometheus.MustNewConstMetric(c.metrics.ambientTemp, prometheus.GaugeValue, therm.AmbientTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.metrics.setpointTemp, prometheus.GaugeValue, therm.SetpointTemp, labels...)
@@ -172,6 +185,7 @@ func (c *Collector) getNestReadings() (thermostats []*Thermostat, err error) {
 		thermostat := Thermostat{
 			ID:           device.Get("name").String(),
 			Label:        device.Get("traits.sdm\\.devices\\.traits\\.Info.customName").String(),
+			Online:       device.Get("traits.sdm\\.devices\\.traits\\.Connectivity.status").String() == "ONLINE",
 			AmbientTemp:  device.Get("traits.sdm\\.devices\\.traits\\.Temperature.ambientTemperatureCelsius").Float(),
 			SetpointTemp: device.Get("traits.sdm\\.devices\\.traits\\.ThermostatTemperatureSetpoint.heatCelsius").Float(),
 			Humidity:     device.Get("traits.sdm\\.devices\\.traits\\.Humidity.ambientHumidityPercent").Float(),

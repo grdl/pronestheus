@@ -88,16 +88,16 @@ OpenWeatherMap API key is required to call the weather API. [Look here](https://
 ```
 # HELP nest_ambient_temperature_celsius Inside temperature.
 # TYPE nest_ambient_temperature_celsius gauge
-nest_ambient_temperature_celsius{id="abcd1234",label="Living-Room"} 23.5
+nest_ambient_temperature_celsius{id="abcd1234",label="Living-Room",room="Living Room"} 23.5
 # HELP nest_heating Is thermostat heating.
 # TYPE nest_heating gauge
-nest_heating{id="abcd1234",label="Living-Room"} 0
+nest_heating{id="abcd1234",label="Living-Room",room="Living Room"} 0
 # HELP nest_humidity_percent Inside humidity.
 # TYPE nest_humidity_percent gauge
-nest_humidity_percent{id="abcd1234",label="Living-Room"} 55
+nest_humidity_percent{id="abcd1234",label="Living-Room",room="Living Room"} 55
 # HELP nest_setpoint_temperature_celsius Setpoint temperature.
 # TYPE nest_setpoint_temperature_celsius gauge
-nest_setpoint_temperature_celsius{id="abcd1234",label="Living-Room"} 18
+nest_setpoint_temperature_celsius{id="abcd1234",label="Living-Room",room="Living Room"} 18
 # HELP nest_up Was talking to Nest API successful.
 # TYPE nest_up gauge
 nest_up 1

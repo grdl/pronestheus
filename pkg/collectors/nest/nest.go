@@ -36,6 +36,7 @@ type Thermostat struct {
 	SetpointTemp float64
 	Humidity     float64
 	Status       string
+	Mode         string
 }
 
 // Config provides the configuration necessary to create the Collector.
@@ -65,6 +66,10 @@ type Metrics struct {
 	setpointTemp *prometheus.Desc
 	humidity     *prometheus.Desc
 	heating      *prometheus.Desc
+	modeHeat     *prometheus.Desc
+	modeCool     *prometheus.Desc
+	modeHeatCool *prometheus.Desc
+	modeOff      *prometheus.Desc
 }
 
 // New creates a Collector using the given Config.
@@ -110,6 +115,10 @@ func buildMetrics() *Metrics {
 		setpointTemp: prometheus.NewDesc(strings.Join([]string{"nest", "setpoint", "temperature", "celsius"}, "_"), "Setpoint temperature.", nestLabels, nil),
 		humidity:     prometheus.NewDesc(strings.Join([]string{"nest", "humidity", "percent"}, "_"), "Inside humidity.", nestLabels, nil),
 		heating:      prometheus.NewDesc(strings.Join([]string{"nest", "heating"}, "_"), "Is thermostat heating.", nestLabels, nil),
+		modeHeat:     prometheus.NewDesc(strings.Join([]string{"nest", "mode", "heat"}, "_"), "Thermostat mode is HEAT.", nestLabels, nil),
+		modeCool:     prometheus.NewDesc(strings.Join([]string{"nest", "mode", "cool"}, "_"), "Thermostat mode is COOL.", nestLabels, nil),
+		modeHeatCool: prometheus.NewDesc(strings.Join([]string{"nest", "mode", "heatcool"}, "_"), "Thermostat mode is HEATCOOL.", nestLabels, nil),
+		modeOff:      prometheus.NewDesc(strings.Join([]string{"nest", "mode", "off"}, "_"), "Thermostat mode is OFF).", nestLabels, nil),
 	}
 }
 
@@ -120,6 +129,10 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.metrics.setpointTemp
 	ch <- c.metrics.humidity
 	ch <- c.metrics.heating
+	ch <- c.metrics.modeHeat
+	ch <- c.metrics.modeCool
+	ch <- c.metrics.modeHeatCool
+	ch <- c.metrics.modeOff
 }
 
 // Collect implements the prometheus.Collector interface.
@@ -142,6 +155,10 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.metrics.setpointTemp, prometheus.GaugeValue, therm.SetpointTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.metrics.humidity, prometheus.GaugeValue, therm.Humidity, labels...)
 		ch <- prometheus.MustNewConstMetric(c.metrics.heating, prometheus.GaugeValue, b2f(therm.Status == "HEATING"), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.modeHeat, prometheus.GaugeValue, b2f(therm.Mode == "HEAT"), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.modeCool, prometheus.GaugeValue, b2f(therm.Mode == "COOL"), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.modeHeatCool, prometheus.GaugeValue, b2f(therm.Mode == "HEATCOOL"), labels...)
+		ch <- prometheus.MustNewConstMetric(c.metrics.modeOff, prometheus.GaugeValue, b2f(therm.Mode == "OFF"), labels...)
 	}
 }
 
@@ -176,6 +193,7 @@ func (c *Collector) getNestReadings() (thermostats []*Thermostat, err error) {
 			SetpointTemp: device.Get("traits.sdm\\.devices\\.traits\\.ThermostatTemperatureSetpoint.heatCelsius").Float(),
 			Humidity:     device.Get("traits.sdm\\.devices\\.traits\\.Humidity.ambientHumidityPercent").Float(),
 			Status:       device.Get("traits.sdm\\.devices\\.traits\\.ThermostatHvac.status").String(),
+			Mode:         device.Get("traits.sdm\\.devices\\.traits\\.ThermostatMode.mode").String(),
 		}
 
 		thermostats = append(thermostats, &thermostat)

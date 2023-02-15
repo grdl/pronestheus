@@ -7,7 +7,7 @@ require (
 	github.com/go-kit/kit v0.10.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.11.1
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/gjson v1.9.3

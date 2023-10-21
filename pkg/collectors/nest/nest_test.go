@@ -26,6 +26,7 @@ func TestServerResponses(t *testing.T) {
 				SetpointTemp: float64(19.17838),
 				Humidity:     float64(57),
 				Status:       "OFF",
+				Mode:         "HEAT",
 			},
 		}, {
 			name:    "invalid auth token",

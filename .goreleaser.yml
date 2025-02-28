@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod download
@@ -7,35 +9,35 @@ builds:
     main: ./cmd/pronestheus/main.go
     binary: pronestheus
     ldflags:
-      - -s -w 
-      - -X main.version={{.Version}} 
-      - -X main.commit={{.Commit}} 
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
     goos:
       - linux
       - darwin
       - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
 
 archives:
   - id: archive
-    replacements:
-      darwin: macOS
-      linux: linux
-      windows: windows
-      386: i386
-      amd64: x86_64
     format_overrides:
       - goos: windows
         format: zip
-    # Don't include any additional files into the archives (such as README, CHANGELOG etc). 
+    # Don't include any additional files into the archives (such as README, CHANGELOG etc).
     files:
-      - none* 
+      - none*
 
 checksum:
   name_template: 'checksums.txt'
 
 changelog:
-  skip: true
+  disable: true
 
 release:
   github:
@@ -43,14 +45,36 @@ release:
     name: pronestheus
 
 dockers:
-  - dockerfile: Dockerfile
+  - use: buildx
+    dockerfile: Dockerfile
     goos: linux
     goarch: amd64
-    binaries:
-      - pronestheus
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
     image_templates:
-      - "grdl/pronestheus:{{ .Tag }}"
-      - "grdl/pronestheus:latest"
+      - "grdl/pronestheus:{{ .Tag }}-amd64"
+      - "grdl/pronestheus:latest-amd64"
+  - use: buildx
+    dockerfile: Dockerfile
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+    image_templates:
+      - "grdl/pronestheus:{{ .Tag }}-arm64"
+      - "grdl/pronestheus:latest-arm64"
+
+docker_manifests:
+  - name_template: "grdl/pronestheus:{{ .Tag }}"
+    image_templates:
+      - "grdl/pronestheus:{{ .Tag }}-amd64"
+      - "grdl/pronestheus:{{ .Tag }}-arm64"
+  - name_template: "grdl/pronestheus:latest"
+    image_templates:
+      - "grdl/pronestheus:latest-amd64"
+      - "grdl/pronestheus:latest-arm64"
 
 nfpms:
   - license: MIT
